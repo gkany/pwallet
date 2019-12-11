@@ -3,11 +3,12 @@
 import json
 import requests
 
+local_rpc_url = "http://192.168.192.148:8049"
 node_rpc_url = "http://test.cocosbcx.net"
 headers = {"content-type": "application/json"}
 
-def request_post(req_data={}):
-    response = json.loads(requests.post(node_rpc_url, data = json.dumps(req_data), headers = headers).text)
+def request_post(url, req_data={}):
+    response = json.loads(requests.post(url, data = json.dumps(req_data), headers = headers).text)
     print('>> {} {}\n{}\n'.format(req_data['method'], req_data['params'], response))
     return json_dumps(response['result'])
 
