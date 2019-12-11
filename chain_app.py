@@ -37,44 +37,6 @@ def request_post2(url, method, params=""):
         jsonText = response
     return jsonText
 
-class request():
-    def __init__(self, url):
-        self.headers = headers
-        self.url = url
-    
-    def __getattr__(self, name):
-        """ Map all methods to RPC calls and pass through the arguments
-        """
-        def method(*args, **kwargs):
-
-            # Sepcify the api to talk to
-            if "api_id" not in kwargs:
-                if ("api" in kwargs):
-                    if (kwargs["api"] in self.api_id and
-                            self.api_id[kwargs["api"]]):
-                        api_id = self.api_id[kwargs["api"]]
-                    else:
-                        raise ValueError(
-                            "Unknown API! "
-                            "Verify that you have registered to %s"
-                            % kwargs["api"]
-                        )
-                else:
-                    api_id = 0
-            else:
-                api_id = kwargs["api_id"]
-
-            # let's be able to define the num_retries per query
-            self.num_retries = kwargs.get("num_retries", self.num_retries)
-
-            query = {"method": "call",
-                     "params": [api_id, name, list(args)],
-                     "jsonrpc": "2.0",
-                     "id": self.get_request_id()}
-            r = self.rpcexec(query)
-            return r
-        return method
-
 class ToolFrame(wx.Frame):
     def __init__(self, *args, **kwargs):
         super(ToolFrame, self).__init__(*args, **kwargs)
