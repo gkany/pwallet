@@ -22,6 +22,59 @@ def request_post(url, req_data={}):
     # print('>> {} {}\n{}\n'.format(req_data['method'], req_data['params'], response))
     return response
 
+def request_post2(url, method, params=""):
+    req_data = {
+        "method": method,
+        "params": [params],
+        "id":1
+    }
+    response = request_post(url, req_data)
+    if 'error' in response:
+        jsonText = response['error']
+    elif 'result' in response:
+        jsonText = response['result']
+    else:
+        jsonText = response
+    return jsonText
+
+class request():
+    def __init__(self, url):
+        self.headers = headers
+        self.url = url
+    
+    def __getattr__(self, name):
+        """ Map all methods to RPC calls and pass through the arguments
+        """
+        def method(*args, **kwargs):
+
+            # Sepcify the api to talk to
+            if "api_id" not in kwargs:
+                if ("api" in kwargs):
+                    if (kwargs["api"] in self.api_id and
+                            self.api_id[kwargs["api"]]):
+                        api_id = self.api_id[kwargs["api"]]
+                    else:
+                        raise ValueError(
+                            "Unknown API! "
+                            "Verify that you have registered to %s"
+                            % kwargs["api"]
+                        )
+                else:
+                    api_id = 0
+            else:
+                api_id = kwargs["api_id"]
+
+            # let's be able to define the num_retries per query
+            self.num_retries = kwargs.get("num_retries", self.num_retries)
+
+            query = {"method": "call",
+                     "params": [api_id, name, list(args)],
+                     "jsonrpc": "2.0",
+                     "id": self.get_request_id()}
+            r = self.rpcexec(query)
+            return r
+        return method
+
 class ToolFrame(wx.Frame):
     def __init__(self, *args, **kwargs):
         super(ToolFrame, self).__init__(*args, **kwargs)
@@ -39,7 +92,7 @@ class ToolFrame(wx.Frame):
         self.clearButton = wx.Button(self, label = '清空',pos = (580, 5), size = (100, 30))
         self.textInput = wx.TextCtrl(self, pos = (5, 5), size = (210, 25))
         self.textShow = wx.TextCtrl(self, pos = (5, 35), size = (800, 600), style = wx.TE_MULTILINE | wx.HSCROLL)
-        self.Bind(wx.EVT_BUTTON, self.on_get_account_by_name, self.queryAccountButton)
+        self.Bind(wx.EVT_BUTTON, self.on_get_account, self.queryAccountButton)
         self.Bind(wx.EVT_BUTTON, self.on_get_object, self.objectIDButton)
         # self.Bind(wx.EVT_BUTTON, self.on_json_data, self.jsonButton)
         self.Bind(wx.EVT_BUTTON, self.on_clear, self.clearButton)
@@ -82,26 +135,20 @@ class ToolFrame(wx.Frame):
         self.textShow.Clear()
 
     def on_show_text(self, method, params):
-        req_data = {
-            "method": method,
-            "params": [params],
-            "id":1
-        }
-        response = request_post(self.url, req_data)
-        if 'error' in response:
-            jsonText = response['error']
-        elif 'result' in response:
-            jsonText = response['result']
-        else:
-            jsonText = response
-        # showText = json_dumps(jsonText)
+        jsonText = request_post2(self.url, method, params)
+        self.show_text(json_dumps(jsonText))
+
+    def show_text(self, text):
         self.textShow.Clear()
-        self.textShow.AppendText(json_dumps(jsonText))
+        self.textShow.AppendText(text)
 
-    def on_get_account_by_name(self, event):
-        account_name = self.textInput.GetValue()
-        self.on_show_text("get_account_by_name", account_name)
-
+    def on_get_account(self, event):
+        name = self.textInput.GetValue()
+        if len(name.split(".")) == 3:
+            self.on_show_text("get_objects", [name])
+        else:
+            self.on_show_text("get_account_by_name", name)
+    
     def on_get_object(self, event):
         object_id = self.textInput.GetValue()
         self.on_show_text("get_objects", [object_id])
