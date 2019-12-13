@@ -4,6 +4,8 @@ import wx
 import time
 import json
 import requests
+from threading import Thread
+from wx.lib.pubsub import pub
 
 # env = ["local", "testnet", "prod"]
 env = [u"个人开发链", "测试网(默认)", "主网"]
@@ -39,6 +41,11 @@ def request_post2(url, method, params=[]):
     else:
         jsonText = response
     return jsonText
+
+def call_after(func):
+    def _wrapper(*args, **kwargs):
+        return wx.CallAfter(func, *args, **kwargs)
+    return _wrapper
 
 class WalletFrame(wx.Frame):
     def __init__(self, *args, **kwargs):
@@ -103,7 +110,28 @@ class WalletFrame(wx.Frame):
         mainBox.Add(self.textShow, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 1)
 
         panel.SetSizer(mainBox) 
+        self._thread = Thread(target = self.run, args = ())
+        self._thread.daemon = True
+        self._thread.start()
+        self.started = True
+
         self.Show(True)
+
+    def run(self):
+        while True:
+            dynamic_global_properties = request_post2(self.url, "get_dynamic_global_properties")
+            # self.updateDisplay(json_dumps(dynamic_global_properties))
+            head_block_number = dynamic_global_properties["head_block_number"]
+            self.updateDisplay(head_block_number)
+            time.sleep(2)
+
+    @call_after
+    def updateDisplay(self, message):
+        """
+        Receives data from thread and updates the display
+        """
+        # self.show_text(message)
+        self.SetTitle('查询工具 -- {} | {}'.format(self.env, message))
 
     def on_local_env(self, event):
         self.on_env(self.localCheck.GetLabel())
