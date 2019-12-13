@@ -5,7 +5,8 @@ import time
 import json
 import requests
 
-env = ["local", "testnet", "prod"]
+# env = ["local", "testnet", "prod"]
+env = [u"个人开发", "测试网(默认)", "主网"]
 nodes_url = {
     env[0]: "http://192.168.192.148:8049", 
     env[1]: "http://test.cocosbcx.net", 
@@ -48,29 +49,59 @@ class ToolFrame(wx.Frame):
         self.env = env[1] #default testnet
         self.url = nodes_url[self.env]
         self.SetTitle('查询工具--{}'.format(self.env))
-        self.SetSize((1080, 768))
+        self.SetSize(size=(1080, 768))
+        panel = wx.Panel(self, -1)
+        mainBox = wx.BoxSizer(wx.VERTICAL)
 
-        self.queryAccountButton = wx.Button(self, label = 'get_account',pos = (225, 5), size = (100, 30))
-        self.objectIDButton = wx.Button(self, label = 'get_object',pos = (330, 5), size = (100, 30))
-        self.balanceButton = wx.Button(self, label = 'account_balances',pos = (440, 5), size = (130, 30))
-        self.propertiesButton = wx.Button(self, label = 'properties',pos = (580, 5), size = (100, 30))
-        self.clearButton = wx.Button(self, label = '清空',pos = (690, 5), size = (100, 30))
-        self.textInput = wx.TextCtrl(self, pos = (5, 5), size = (210, 25))
-        self.textShow = wx.TextCtrl(self, pos = (5, 35), size = (800, 600), style = wx.TE_MULTILINE | wx.HSCROLL)
+        envBox = wx.BoxSizer()
+        envText = wx.StaticText(panel, label=u'请选择使用的链: ')
+        self.localCheck = wx.RadioButton(panel, -1, env[0], style=wx.RB_GROUP) 
+        self.testnetCheck = wx.RadioButton(panel, -1, env[1]) 
+        self.prodCheck = wx.RadioButton(panel, -1, env[2]) 
+
+        self.localCheck.Bind(wx.EVT_RADIOBUTTON, self.on_local_check) 
+        self.testnetCheck.Bind(wx.EVT_RADIOBUTTON, self.on_testnet_check) 
+        self.prodCheck.Bind(wx.EVT_RADIOBUTTON, self.on_prod_check) 
+
+        envBox.Add(envText, proportion = 0,flag = wx.EXPAND|wx.ALL, border = 3)
+        envBox.Add(self.localCheck, proportion = 0,flag = wx.EXPAND|wx.ALL, border = 3)
+        envBox.Add(self.testnetCheck, proportion = 0,flag = wx.EXPAND|wx.ALL, border = 3)
+        envBox.Add(self.prodCheck, proportion = 0,flag = wx.EXPAND|wx.ALL, border = 3)
+        
+        mainBox.Add(envBox)
+
+        self.inputBox = wx.BoxSizer(wx.HORIZONTAL)
+        paramsText = wx.StaticText(panel, label=u"输入  ")
+        self.textInput = wx.TextCtrl(panel, size = (400, 22))
+        self.inputBox.Add(paramsText, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
+        self.inputBox.Add(self.textInput, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 1)
+        mainBox.Add(self.inputBox)
+
+        self.queryAccountButton = wx.Button(panel, label = 'get_account')
+        self.objectIDButton = wx.Button(panel, label = 'get_object')
+        self.balanceButton = wx.Button(panel, label = 'account_balances')
+        self.propertiesButton = wx.Button(panel, label = 'properties')
+        self.clearButton = wx.Button(panel, label = '清空')
+
         self.Bind(wx.EVT_BUTTON, self.on_get_account, self.queryAccountButton)
         self.Bind(wx.EVT_BUTTON, self.on_get_object, self.objectIDButton)
         self.Bind(wx.EVT_BUTTON, self.on_list_account_balances, self.balanceButton)
         self.Bind(wx.EVT_BUTTON, self.on_properties, self.propertiesButton)
         self.Bind(wx.EVT_BUTTON, self.on_clear, self.clearButton)
 
-        # local--本地，testnet--测试网，prod--主网
-        self.localCheck = wx.RadioButton(self, -1, env[0], pos=(820, 3), size=(70, 50), style=wx.RB_GROUP) 
-        self.testnetCheck = wx.RadioButton(self, -1, env[1], pos=(900, 3), size=(70, 50)) 
-        self.prodCheck = wx.RadioButton(self, -1, env[2], pos=(980, 3), size=(70, 50)) 
-        self.localCheck.Bind(wx.EVT_RADIOBUTTON, self.on_local_check) 
-        self.testnetCheck.Bind(wx.EVT_RADIOBUTTON, self.on_testnet_check) 
-        self.prodCheck.Bind(wx.EVT_RADIOBUTTON, self.on_prod_check) 
+        operationBox = wx.BoxSizer(wx.HORIZONTAL)
+        operationBox.Add(self.queryAccountButton, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
+        operationBox.Add(self.objectIDButton, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
+        operationBox.Add(self.balanceButton, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
+        operationBox.Add(self.propertiesButton, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
+        operationBox.Add(self.clearButton, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
 
+        mainBox.Add(operationBox)
+
+        self.textShow = wx.TextCtrl(panel, size = (1000, 768), style = wx.TE_MULTILINE | wx.HSCROLL)
+        mainBox.Add(self.textShow, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 1)
+
+        panel.SetSizer(mainBox) 
         self.Show(True)
 
     def on_local_check(self, event):
@@ -123,9 +154,9 @@ class ToolFrame(wx.Frame):
     def on_properties(self, event):
         is_simple = self.textInput.GetValue()
         self.textShow.Clear()
-        self.on_show_text(method="get_chain_properties", is_clear_text=False)
         self.on_show_text(method="get_dynamic_global_properties", is_clear_text=False)
         if len(is_simple) > 0:
+            self.on_show_text(method="get_chain_properties", is_clear_text=False)
             self.on_show_text(method="get_global_properties", is_clear_text=False)
             self.on_show_text(method="get_config", is_clear_text=False)
 
