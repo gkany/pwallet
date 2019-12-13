@@ -12,6 +12,8 @@ nodes_url = {
     env[2]: "https://api.cocosbcx.net"
 }
 
+assets = ["1.3.0", "1.3.1"]  # get_account_balances 默认查询 COCOS 和 GAS
+
 headers = {"content-type": "application/json"}
 
 def json_dumps(json_data):
@@ -22,10 +24,10 @@ def request_post(url, req_data={}):
     # print('>> {} {}\n{}\n'.format(req_data['method'], req_data['params'], response))
     return response
 
-def request_post2(url, method, params=""):
+def request_post2(url, method, params=[]):
     req_data = {
         "method": method,
-        "params": [params],
+        "params": params,
         "id":1
     }
     response = request_post(url, req_data)
@@ -49,14 +51,16 @@ class ToolFrame(wx.Frame):
         self.SetSize((1080, 768))
 
         self.queryAccountButton = wx.Button(self, label = 'get_account',pos = (225, 5), size = (100, 30))
-        self.objectIDButton = wx.Button(self, label = 'get_object',pos = (350, 5), size = (100, 30))
-        # self.jsonButton = wx.Button(self, label = 'json格式化',pos = (460, 5), size = (100, 30))
-        self.clearButton = wx.Button(self, label = '清空',pos = (580, 5), size = (100, 30))
+        self.objectIDButton = wx.Button(self, label = 'get_object',pos = (330, 5), size = (100, 30))
+        self.balanceButton = wx.Button(self, label = 'account_balances',pos = (440, 5), size = (130, 30))
+        self.propertiesButton = wx.Button(self, label = 'properties',pos = (580, 5), size = (100, 30))
+        self.clearButton = wx.Button(self, label = '清空',pos = (690, 5), size = (100, 30))
         self.textInput = wx.TextCtrl(self, pos = (5, 5), size = (210, 25))
         self.textShow = wx.TextCtrl(self, pos = (5, 35), size = (800, 600), style = wx.TE_MULTILINE | wx.HSCROLL)
         self.Bind(wx.EVT_BUTTON, self.on_get_account, self.queryAccountButton)
         self.Bind(wx.EVT_BUTTON, self.on_get_object, self.objectIDButton)
-        # self.Bind(wx.EVT_BUTTON, self.on_json_data, self.jsonButton)
+        self.Bind(wx.EVT_BUTTON, self.on_list_account_balances, self.balanceButton)
+        self.Bind(wx.EVT_BUTTON, self.on_properties, self.propertiesButton)
         self.Bind(wx.EVT_BUTTON, self.on_clear, self.clearButton)
 
         # local--本地，testnet--测试网，prod--主网
@@ -83,37 +87,47 @@ class ToolFrame(wx.Frame):
         self.url = nodes_url[self.env]
         self.SetTitle('查询工具--{}'.format(self.env))
 
-    # def on_json_data(self, event):
-    #     try:
-    #         data = self.textShow.GetValue()
-    #         showText = json_dumps(data)
-    #         self.textShow.Clear()
-    #         self.textShow.AppendText(showText)
-    #     except Exception as e:
-    #         self.textShow.AppendText("不是标准的json格式")
-
     def on_clear(self, event):
         self.textInput.Clear()
         self.textShow.Clear()
 
-    def on_show_text(self, method, params):
+    def on_show_text(self, method, params=[], is_clear_text=True):
         jsonText = request_post2(self.url, method, params)
-        self.show_text(json_dumps(jsonText))
+        self.show_text(json_dumps(jsonText), is_clear_text)
 
-    def show_text(self, text):
-        self.textShow.Clear()
+    def show_text(self, text, is_clear_text=True):
+        if is_clear_text:
+            self.textShow.Clear()
         self.textShow.AppendText(text)
+        self.textShow.AppendText('\n')
 
     def on_get_account(self, event):
         name = self.textInput.GetValue()
         if len(name.split(".")) == 3:
-            self.on_show_text("get_objects", [name])
+            self.on_show_text("get_objects", [[name]])
         else:
-            self.on_show_text("get_account_by_name", name)
+            self.on_show_text("get_account_by_name", [name])
     
     def on_get_object(self, event):
         object_id = self.textInput.GetValue()
-        self.on_show_text("get_objects", [object_id])
+        self.on_show_text("get_objects", [[object_id]])
+
+    def on_list_account_balances(self, event):
+        name = self.textInput.GetValue()
+        if len(name.split(".")) == 3:
+            method = "get_account_balances"
+        else:
+            method = "get_named_account_balances"
+        self.on_show_text(method, [name, assets])
+
+    def on_properties(self, event):
+        is_simple = self.textInput.GetValue()
+        self.textShow.Clear()
+        self.on_show_text(method="get_chain_properties", is_clear_text=False)
+        self.on_show_text(method="get_dynamic_global_properties", is_clear_text=False)
+        if len(is_simple) > 0:
+            self.on_show_text(method="get_global_properties", is_clear_text=False)
+            self.on_show_text(method="get_config", is_clear_text=False)
 
 def Main():
     app = wx.App()
