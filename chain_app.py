@@ -8,11 +8,11 @@ from threading import Thread
 from wx.lib.pubsub import pub
 
 # env = ["local", "testnet", "prod"]
-env = [u"个人开发链", "测试网(默认)", "主网"]
+env = [u"主网", u"测试网(默认)", u"自定义"]
 nodes_url = {
-    env[0]: "http://127.0.0.1:8049", 
+    env[0]: "https://api.cocosbcx.net",
     env[1]: "http://test.cocosbcx.net", 
-    env[2]: "https://api.cocosbcx.net"
+    env[2]: "http://127.0.0.1:8049"
 }
 
 assets = ["1.3.0", "1.3.1"]  # get_account_balances 默认查询 COCOS 和 GAS
@@ -50,31 +50,33 @@ def call_after(func):
 class WalletFrame(wx.Frame):
     def __init__(self, *args, **kwargs):
         super(WalletFrame, self).__init__(*args, **kwargs)
-        self.Center()
+        # self.Center()
         self.InitUI()
 
     def InitUI(self):
         self.env = env[1] #default testnet
         self.url = nodes_url[self.env]
         self.SetTitle('查询工具 -- {}'.format(self.env))
-        self.SetSize(size=(1080, 768))
+        self.SetSize(size=(900, 600))
         panel = wx.Panel(self, -1)
         mainBox = wx.BoxSizer(wx.VERTICAL)
 
         envBox = wx.BoxSizer()
-        envText = wx.StaticText(panel, label=u'请选择使用的链: ')
-        self.localCheck = wx.RadioButton(panel, -1, env[0], style=wx.RB_GROUP) 
+        envText = wx.StaticText(panel, label=u'请选择您使用的链: ')
+        self.prodCheck = wx.RadioButton(panel, -1, env[0], style=wx.RB_GROUP) 
         self.testnetCheck = wx.RadioButton(panel, -1, env[1]) 
-        self.prodCheck = wx.RadioButton(panel, -1, env[2]) 
+        self.customizeCheck = wx.RadioButton(panel, -1, env[2]) 
+        self.customizeChainText = wx.TextCtrl(panel, value=nodes_url[env[2]], size = (180, 20))
 
-        self.localCheck.Bind(wx.EVT_RADIOBUTTON, self.on_local_env) 
+        self.customizeCheck.Bind(wx.EVT_RADIOBUTTON, self.on_customize_env) 
         self.testnetCheck.Bind(wx.EVT_RADIOBUTTON, self.on_testnet_env) 
         self.prodCheck.Bind(wx.EVT_RADIOBUTTON, self.on_prod_env) 
 
         envBox.Add(envText, proportion = 0,flag = wx.EXPAND|wx.ALL, border = 3)
-        envBox.Add(self.localCheck, proportion = 0,flag = wx.EXPAND|wx.ALL, border = 3)
-        envBox.Add(self.testnetCheck, proportion = 0,flag = wx.EXPAND|wx.ALL, border = 3)
         envBox.Add(self.prodCheck, proportion = 0,flag = wx.EXPAND|wx.ALL, border = 3)
+        envBox.Add(self.testnetCheck, proportion = 0,flag = wx.EXPAND|wx.ALL, border = 3)
+        envBox.Add(self.customizeCheck, proportion = 0,flag = wx.EXPAND|wx.ALL, border = 3)
+        envBox.Add(self.customizeChainText, proportion = 0,flag = wx.EXPAND|wx.ALL, border = 3)
         
         mainBox.Add(envBox)
 
@@ -119,10 +121,12 @@ class WalletFrame(wx.Frame):
 
     def run(self):
         while True:
-            dynamic_global_properties = request_post2(self.url, "get_dynamic_global_properties")
-            # self.updateDisplay(json_dumps(dynamic_global_properties))
-            head_block_number = dynamic_global_properties["head_block_number"]
-            self.updateDisplay(head_block_number)
+            try:
+                dynamic_global_properties = request_post2(self.url, "get_dynamic_global_properties")
+                head_block_number = dynamic_global_properties["head_block_number"]
+                self.updateDisplay(head_block_number)
+            except Exception as e:
+                print(repr(e))
             time.sleep(2)
 
     @call_after
@@ -133,8 +137,11 @@ class WalletFrame(wx.Frame):
         # self.show_text(message)
         self.SetTitle('查询工具 -- {} | {}'.format(self.env, message))
 
-    def on_local_env(self, event):
-        self.on_env(self.localCheck.GetLabel())
+    def on_customize_env(self, event):
+        value = self.customizeChainText.GetValue()
+        if value.startswith("http"):
+            nodes_url[env[2]] = value
+        self.on_env(self.customizeCheck.GetLabel())
 
     def on_testnet_env(self, event):
         self.on_env(self.testnetCheck.GetLabel())
