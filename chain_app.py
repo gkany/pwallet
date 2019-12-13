@@ -60,9 +60,9 @@ class WalletFrame(wx.Frame):
         self.testnetCheck = wx.RadioButton(panel, -1, env[1]) 
         self.prodCheck = wx.RadioButton(panel, -1, env[2]) 
 
-        self.localCheck.Bind(wx.EVT_RADIOBUTTON, self.on_local_check) 
-        self.testnetCheck.Bind(wx.EVT_RADIOBUTTON, self.on_testnet_check) 
-        self.prodCheck.Bind(wx.EVT_RADIOBUTTON, self.on_prod_check) 
+        self.localCheck.Bind(wx.EVT_RADIOBUTTON, self.on_local_env) 
+        self.testnetCheck.Bind(wx.EVT_RADIOBUTTON, self.on_testnet_env) 
+        self.prodCheck.Bind(wx.EVT_RADIOBUTTON, self.on_prod_env) 
 
         envBox.Add(envText, proportion = 0,flag = wx.EXPAND|wx.ALL, border = 3)
         envBox.Add(self.localCheck, proportion = 0,flag = wx.EXPAND|wx.ALL, border = 3)
@@ -105,19 +105,19 @@ class WalletFrame(wx.Frame):
         panel.SetSizer(mainBox) 
         self.Show(True)
 
-    def on_local_check(self, event):
-        self.on_check(self.localCheck.GetLabel())
+    def on_local_env(self, event):
+        self.on_env(self.localCheck.GetLabel())
 
-    def on_testnet_check(self, event):
-        self.on_check(self.testnetCheck.GetLabel())
+    def on_testnet_env(self, event):
+        self.on_env(self.testnetCheck.GetLabel())
 
-    def on_prod_check(self, event):
-        self.on_check(self.prodCheck.GetLabel())
+    def on_prod_env(self, event):
+        self.on_env(self.prodCheck.GetLabel())
 
-    def on_check(self, value):
+    def on_env(self, value):
         self.env = value
         self.url = nodes_url[self.env]
-        self.SetTitle('查询工具--{}'.format(self.env))
+        self.SetTitle('查询工具 -- {}'.format(self.env))
 
     def on_clear(self, event):
         self.textInput.Clear()
