@@ -6,9 +6,9 @@ import json
 import requests
 
 # env = ["local", "testnet", "prod"]
-env = [u"个人开发", "测试网(默认)", "主网"]
+env = [u"个人开发链", "测试网(默认)", "主网"]
 nodes_url = {
-    env[0]: "http://192.168.192.148:8049", 
+    env[0]: "http://127.0.0.1:8049", 
     env[1]: "http://test.cocosbcx.net", 
     env[2]: "https://api.cocosbcx.net"
 }
@@ -40,15 +40,16 @@ def request_post2(url, method, params=[]):
         jsonText = response
     return jsonText
 
-class ToolFrame(wx.Frame):
+class WalletFrame(wx.Frame):
     def __init__(self, *args, **kwargs):
-        super(ToolFrame, self).__init__(*args, **kwargs)
+        super(WalletFrame, self).__init__(*args, **kwargs)
+        self.Center()
         self.InitUI()
 
     def InitUI(self):
         self.env = env[1] #default testnet
         self.url = nodes_url[self.env]
-        self.SetTitle('查询工具--{}'.format(self.env))
+        self.SetTitle('查询工具 -- {}'.format(self.env))
         self.SetSize(size=(1080, 768))
         panel = wx.Panel(self, -1)
         mainBox = wx.BoxSizer(wx.VERTICAL)
@@ -162,7 +163,7 @@ class ToolFrame(wx.Frame):
 
 def Main():
     app = wx.App()
-    ToolFrame(None)
+    WalletFrame(None)
     app.MainLoop()
 
 if __name__ == "__main__":
