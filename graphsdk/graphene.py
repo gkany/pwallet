@@ -29,6 +29,12 @@ from .utils import getRegItem, formatTimeFromNow
 
 log = logging.getLogger(__name__)
 
+def ping(node="", rpcuser="", rpcpassword="", **kwargs):
+    try:
+        GrapheneNodeRPC(node, rpcuser, rpcpassword, **kwargs)
+    except Exception as e:
+        return False
+    return True
 
 class Graphene(object):
     """ Connect to the graphene network.

@@ -5,17 +5,13 @@ import time
 import json
 import requests
 from wx.lib.pubsub import pub
-from threading import Thread
+from threading import Thread, Lock
 
-from graphsdk.graphene import Graphene
+from graphsdk.graphene import Graphene, ping
 from graphsdk.instance import set_shared_graphene_instance
 
-# env = ["local", "testnet", "prod"]
-env = [u"主网", u"测试网(默认)", u"自定义"]
+env = [ u"主网", u"测试网(默认)", u"自定义"]
 nodeAddresses = {
-    # env[0]: "https://api.cocosbcx.net",
-    # env[1]: "http://test.cocosbcx.net", 
-    # env[2]: "http://127.0.0.1:8049"
     env[0]: "wss://api.cocosbcx.net",
     env[1]: "wss://test.cocosbcx.net", 
     env[2]: "ws://127.0.0.1:8049"
@@ -57,14 +53,18 @@ class WalletFrame(wx.Frame):
     def __init__(self, *args, **kwargs):
         super(WalletFrame, self).__init__(*args, **kwargs)
         # self.Center()
+        self.titleLock = Lock()
         self.env = env[1] #default testnet
         self.nodeAddress = nodeAddresses[self.env]
-        self.graphene(self.nodeAddress)
+        self.initGraphene(self.nodeAddress)
         self.InitUI()
 
-    def graphene(self, nodeAddress):
-        self.gph = Graphene(node=nodeAddress, num_retries=1) 
-        set_shared_graphene_instance(self.gph) 
+    def initGraphene(self, nodeAddress):
+        if ping(node=nodeAddress, num_retries=1):
+            self.gph = Graphene(node=nodeAddress, num_retries=1) 
+            set_shared_graphene_instance(self.gph)
+        else:
+            self.gph = None
     
     def InitUI(self):
         self.SetTitle('查询工具 -- {}'.format(self.env))
@@ -74,8 +74,8 @@ class WalletFrame(wx.Frame):
 
         envBox = wx.BoxSizer()
         envText = wx.StaticText(panel, label=u'请选择您使用的链: ')
-        self.prodCheck = wx.RadioButton(panel, -1, env[0], style=wx.RB_GROUP) 
-        self.testnetCheck = wx.RadioButton(panel, -1, env[1]) 
+        self.testnetCheck = wx.RadioButton(panel, -1, env[1], style=wx.RB_GROUP) 
+        self.prodCheck = wx.RadioButton(panel, -1, env[0]) 
         self.customizeCheck = wx.RadioButton(panel, -1, env[2]) 
         self.customizeChainText = wx.TextCtrl(panel, value=nodeAddresses[env[2]], size = (180, 20))
 
@@ -133,18 +133,16 @@ class WalletFrame(wx.Frame):
     def run(self):
         while True:
             try:
-                info = self.gph.info()
-                head_block_number = info['head_block_number']
-                self.updateDisplay(head_block_number)
+                if self.gph:
+                    info = self.gph.info()
+                    head_block_number = info['head_block_number']
+                    self.updateDisplay(head_block_number)
             except Exception as e:
                 print(repr(e))
             time.sleep(2)
 
     @call_after
     def updateDisplay(self, message):
-        """
-        Receives data from thread and updates the display
-        """
         self.SetTitle('查询工具 -- {} | {}'.format(self.env, message))
 
     def on_customize_env(self, event):
@@ -162,7 +160,7 @@ class WalletFrame(wx.Frame):
     def on_env(self, value):
         self.env = value
         self.nodeAddress = nodeAddresses[self.env]
-        self.graphene(self.nodeAddress)
+        self.initGraphene(self.nodeAddress)
         self.SetTitle('查询工具 -- {}'.format(self.env))
 
     def on_clear(self, event):
