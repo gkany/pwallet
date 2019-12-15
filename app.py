@@ -8,6 +8,7 @@ from wx.lib.pubsub import pub
 from threading import Thread, Lock
 
 from graphsdk.graphene import Graphene, ping
+from graphsdk.account import Account
 from graphsdk.instance import set_shared_graphene_instance
 
 env = [ u"主网", u"测试网(默认)", u"自定义"]
@@ -17,7 +18,7 @@ nodeAddresses = {
     env[2]: "ws://127.0.0.1:8049"
 }
 
-assets = ["1.3.0", "1.3.1"]  # get_account_balances 默认查询 COCOS 和 GAS
+# assets = ["1.3.0", "1.3.1"]  # get_account_balances 默认查询 COCOS 和 GAS
 
 headers = {"content-type": "application/json"}
 
@@ -67,7 +68,7 @@ class WalletFrame(wx.Frame):
             self.gph = None
     
     def InitUI(self):
-        self.SetTitle('查询工具 -- {}'.format(self.env))
+        self.SetTitle('桌面钱包 -- {}'.format(self.env))
         self.SetSize(size=(900, 600))
         panel = wx.Panel(self, -1)
         mainBox = wx.BoxSizer(wx.VERTICAL)
@@ -93,28 +94,50 @@ class WalletFrame(wx.Frame):
 
         self.inputBox = wx.BoxSizer(wx.HORIZONTAL)
         paramsText = wx.StaticText(panel, label=u"输入  ")
-        self.textInput = wx.TextCtrl(panel, size = (400, 22))
+        self.textInput = wx.TextCtrl(panel, size = (400, 20))
+        self.clearButton = wx.Button(panel, label = '清空')
+        self.Bind(wx.EVT_BUTTON, self.on_clear, self.clearButton)
+
         self.inputBox.Add(paramsText, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
-        self.inputBox.Add(self.textInput, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 1)
+        self.inputBox.Add(self.textInput, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
+        self.inputBox.Add(self.clearButton, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
         mainBox.Add(self.inputBox)
 
-        self.queryAccountButton = wx.Button(panel, label = 'get_account')
-        self.objectIDButton = wx.Button(panel, label = 'get_object')
-        self.balanceButton = wx.Button(panel, label = 'account_balances')
-        self.propertiesButton = wx.Button(panel, label = 'properties')
-        self.clearButton = wx.Button(panel, label = '清空')
+        # wallet
+        self.walletBox = wx.StaticBox(panel, label='wallet')
+        self.createWalletButton = wx.Button(self.walletBox, label = 'create_wallet') 
+        self.unlockButton = wx.Button(self.walletBox, label = 'unlock')
+        self.lockButton = wx.Button(self.walletBox, label = 'lock')
+        self.importKeyButton = wx.Button(self.walletBox, label = 'import_key')
+        # self.clearButton = wx.Button(self.walletBox, label = '清空')
+
+        walletSBS = wx.StaticBoxSizer(self.walletBox, wx.HORIZONTAL)
+        walletSBS.Add(self.createWalletButton, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
+        walletSBS.Add(self.unlockButton, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
+        walletSBS.Add(self.lockButton, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
+        walletSBS.Add(self.importKeyButton, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
+        # walletSBS.Add(self.clearButton, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
+        mainBox.Add(walletSBS)
+
+        self.chainBox = wx.StaticBox(panel, label='chain')
+        self.queryAccountButton = wx.Button(self.chainBox, label = 'get_account')
+        self.objectIDButton = wx.Button(self.chainBox, label = 'get_object')
+        self.balanceButton = wx.Button(self.chainBox, label = 'account_balances')
+        self.infoButton = wx.Button(self.chainBox, label = 'info')
+        self.transferButton = wx.Button(self.chainBox, label = 'transfer')
 
         self.Bind(wx.EVT_BUTTON, self.on_get_account, self.queryAccountButton)
         self.Bind(wx.EVT_BUTTON, self.on_get_object, self.objectIDButton)
         self.Bind(wx.EVT_BUTTON, self.on_list_account_balances, self.balanceButton)
-        self.Bind(wx.EVT_BUTTON, self.on_properties, self.propertiesButton)
-        self.Bind(wx.EVT_BUTTON, self.on_clear, self.clearButton)
+        self.Bind(wx.EVT_BUTTON, self.on_info, self.infoButton)
 
-        operationBox = wx.BoxSizer(wx.HORIZONTAL)
+        # operationBox = wx.BoxSizer(wx.HORIZONTAL)
+        operationBox = wx.StaticBoxSizer(self.chainBox, wx.HORIZONTAL)
         operationBox.Add(self.queryAccountButton, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
         operationBox.Add(self.objectIDButton, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
         operationBox.Add(self.balanceButton, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
-        operationBox.Add(self.propertiesButton, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
+        operationBox.Add(self.infoButton, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
+        operationBox.Add(self.transferButton, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
         operationBox.Add(self.clearButton, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
 
         mainBox.Add(operationBox)
@@ -143,7 +166,7 @@ class WalletFrame(wx.Frame):
 
     @call_after
     def updateDisplay(self, message):
-        self.SetTitle('查询工具 -- {} | {}'.format(self.env, message))
+        self.SetTitle('桌面钱包 -- {} | 区块高度：{}'.format(self.env, message))
 
     def on_customize_env(self, event):
         value = self.customizeChainText.GetValue()
@@ -161,7 +184,7 @@ class WalletFrame(wx.Frame):
         self.env = value
         self.nodeAddress = nodeAddresses[self.env]
         self.initGraphene(self.nodeAddress)
-        self.SetTitle('查询工具 -- {}'.format(self.env))
+        self.SetTitle('桌面钱包 -- {}'.format(self.env))
 
     def on_clear(self, event):
         self.textInput.Clear()
@@ -170,6 +193,7 @@ class WalletFrame(wx.Frame):
     def on_show_text(self, method, params=[], is_clear_text=True):
         jsonText = request_post2(self.nodeAddress, method, params)
         self.show_text(json_dumps(jsonText), is_clear_text)
+
 
     def show_text(self, text, is_clear_text=True):
         if is_clear_text:
@@ -180,30 +204,23 @@ class WalletFrame(wx.Frame):
     def on_get_account(self, event):
         name = self.textInput.GetValue()
         if len(name.split(".")) == 3:
-            self.on_show_text("get_objects", [[name]])
+            text = self.gph.rpc.get_object(name)
         else:
-            self.on_show_text("get_account_by_name", [name])
+            account = Account(name)
+            text = account.accounts_cache[name]
+        self.show_text(json_dumps(text))
     
     def on_get_object(self, event):
         object_id = self.textInput.GetValue()
-        self.on_show_text("get_objects", [[object_id]])
+        self.show_text(json_dumps(self.gph.rpc.get_object(object_id)))
 
     def on_list_account_balances(self, event):
         name = self.textInput.GetValue()
-        if len(name.split(".")) == 3:
-            method = "get_account_balances"
-        else:
-            method = "get_named_account_balances"
-        self.on_show_text(method, [name, assets])
+        account = Account(name)
+        self.show_text(json_dumps(account.balances))
 
-    def on_properties(self, event):
-        is_simple = self.textInput.GetValue()
-        self.textShow.Clear()
-        self.on_show_text(method="get_dynamic_global_properties", is_clear_text=False)
-        if len(is_simple) > 0:
-            self.on_show_text(method="get_chain_properties", is_clear_text=False)
-            self.on_show_text(method="get_global_properties", is_clear_text=False)
-            self.on_show_text(method="get_config", is_clear_text=False)
+    def on_info(self, event):
+        self.show_text(json_dumps(self.gph.info()))
 
 def Main():
     app = wx.App()
