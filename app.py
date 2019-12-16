@@ -10,13 +10,14 @@ from threading import Thread, Lock
 from graphsdk.graphene import Graphene, ping
 from graphsdk.account import Account
 from graphsdk.instance import set_shared_graphene_instance
+from graphsdkbase.chains import *
 
-env = [ u"主网", u"测试网(默认)", u"自定义"]
-nodeAddresses = {
-    env[0]: "wss://api.cocosbcx.net",
-    env[1]: "wss://test.cocosbcx.net", 
-    env[2]: "ws://127.0.0.1:8049"
-}
+# env = [ u"主网", u"测试网(默认)", u"自定义"]
+# nodeAddresses = {
+#     env[0]: "wss://api.cocosbcx.net",
+#     env[1]: "wss://test.cocosbcx.net", 
+#     env[2]: "ws://127.0.0.1:8049"
+# }
 
 # assets = ["1.3.0", "1.3.1"]  # get_account_balances 默认查询 COCOS 和 GAS
 
@@ -56,6 +57,8 @@ class WalletFrame(wx.Frame):
         # self.Center()
         self.titleLock = Lock()
         self.env = env[1] #default testnet
+        global g_current_chain
+        g_current_chain = self.env
         self.nodeAddress = nodeAddresses[self.env]
         self.initGraphene(self.nodeAddress)
         self.InitUI()
@@ -109,14 +112,23 @@ class WalletFrame(wx.Frame):
         self.unlockButton = wx.Button(self.walletBox, label = 'unlock')
         self.lockButton = wx.Button(self.walletBox, label = 'lock')
         self.importKeyButton = wx.Button(self.walletBox, label = 'import_key')
-        # self.clearButton = wx.Button(self.walletBox, label = '清空')
+        self.getAccountsButton = wx.Button(self.walletBox, label = 'getAccounts')
+        self.transferButton = wx.Button(self.walletBox, label = 'transfer')
+
+        self.Bind(wx.EVT_BUTTON, self.on_wallet_create, self.createWalletButton)
+        self.Bind(wx.EVT_BUTTON, self.on_wallet_unlock, self.unlockButton)
+        self.Bind(wx.EVT_BUTTON, self.on_wallet_lock, self.lockButton)
+        self.Bind(wx.EVT_BUTTON, self.on_wallet_importKey, self.importKeyButton)
+        self.Bind(wx.EVT_BUTTON, self.on_wallet_getAccounts, self.getAccountsButton)
+        self.Bind(wx.EVT_BUTTON, self.on_wallet_transfer, self.transferButton)
 
         walletSBS = wx.StaticBoxSizer(self.walletBox, wx.HORIZONTAL)
         walletSBS.Add(self.createWalletButton, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
         walletSBS.Add(self.unlockButton, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
         walletSBS.Add(self.lockButton, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
         walletSBS.Add(self.importKeyButton, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
-        # walletSBS.Add(self.clearButton, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
+        walletSBS.Add(self.getAccountsButton, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
+        walletSBS.Add(self.transferButton, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
         mainBox.Add(walletSBS)
 
         self.chainBox = wx.StaticBox(panel, label='chain')
@@ -182,6 +194,8 @@ class WalletFrame(wx.Frame):
 
     def on_env(self, value):
         self.env = value
+        global g_current_chain
+        g_current_chain = self.env
         self.nodeAddress = nodeAddresses[self.env]
         self.initGraphene(self.nodeAddress)
         self.SetTitle('桌面钱包 -- {}'.format(self.env))
@@ -221,6 +235,52 @@ class WalletFrame(wx.Frame):
 
     def on_info(self, event):
         self.show_text(json_dumps(self.gph.info()))
+
+    def on_wallet_create(self, event):
+        print('>>> on_wallet_create')
+        password = self.textInput.GetValue()
+        if len(password) == 0:
+            password = "123456" # default
+        self.gph.newWallet(password)
+
+        # if self.gph.wallet.created():
+        #     password = self.textInput.GetValue()
+        #     if len(password) == 0:
+        #         password = "123456" # default
+        #     self.gph.newWallet(password)
+        # else:
+        #     print("wallet already exist. chain: {}".format(g_current_chain))
+
+    def on_wallet_unlock(self, event):
+        print('>>> on_wallet_unlock')
+        password = self.textInput.GetValue()
+        if len(password) == 0:
+            password = "123456" # default
+        self.gph.wallet.unlock(password)
+
+    def on_wallet_lock(self, event):
+        print('>>> on_wallet_lock')
+        self.gph.wallet.lock()
+
+    def on_wallet_importKey(self, event):
+        print('>>> on_wallet_importKey')
+        wif = self.textInput.GetValue()
+        if len(wif) != 0:
+            self.gph.wallet.addPrivateKey(wif)
+
+    def on_wallet_getAccounts(self, event):
+        accounts = self.gph.wallet.getAccounts()
+        print(accounts)
+        self.show_text(json_dumps(accounts))
+
+    # transfer(self, to, amount, asset, memo=["", 0], account=None):
+    def on_wallet_transfer(self, event):
+        params = self.textInput.GetValue()
+        tokens = params.split(',')
+        print(">>> transfer {}".format(str(tokens)))
+        # result = self.gph.transfer(tokens[1].strip(), tokens[2].strip(), tokens[3].strip(), [tokens[4].strip(), int(tokens[5].strip())], tokens[0].strip())
+        result = self.gph.transfer(tokens[1].strip(), tokens[2].strip(), tokens[3].strip(), [tokens[4].strip(), 0], tokens[0].strip())
+        self.show_text(json_dumps(result))
 
 def Main():
     app = wx.App()

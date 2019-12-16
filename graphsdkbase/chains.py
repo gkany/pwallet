@@ -17,3 +17,12 @@ known_chains = {
         "prefix": "COCOS"
     }
 }
+
+env = [ "prod", "testnet", "customize"] #主网 | 测试网(默认) | 自定义
+nodeAddresses = {
+    env[0]: "wss://api.cocosbcx.net",
+    env[1]: "wss://test.cocosbcx.net",
+    env[2]: "ws://127.0.0.1:8049"
+}
+
+g_current_chain = env[1]

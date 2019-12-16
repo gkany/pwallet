@@ -10,6 +10,8 @@ from binascii import hexlify
 import random
 import hashlib
 from .exceptions import WrongMasterPasswordException
+from graphsdkbase.chains import g_current_chain
+
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
 log.addHandler(logging.StreamHandler())
@@ -109,6 +111,8 @@ class Key(DataDir):
     __tablename__ = 'keys'
 
     def __init__(self):
+        self.__tablename__ = '{}_{}'.format(self.__tablename__, g_current_chain)
+        print(">>>[Key] __tablename__: {}".format(self.__tablename__))
         super(Key, self).__init__()
 
     def exists_table(self):
@@ -226,13 +230,15 @@ class Configuration(DataDir):
 
     #: Default configuration
     config_defaults = {
-        "node": "ws://127.0.0.1:8090",
+        "node": "ws://127.0.0.1:8049",
         "rpcpassword": "",
         "rpcuser": "",
         "order-expiration": 7 * 24 * 60 * 60,
     }
 
     def __init__(self):
+        self.__tablename__ = '{}_{}'.format(self.__tablename__, g_current_chain)
+        print(">>>[Configuration] __tablename__: {}".format(self.__tablename__))
         super(Configuration, self).__init__()
 
     def exists_table(self):
