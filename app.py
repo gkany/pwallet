@@ -97,13 +97,11 @@ class WalletFrame(wx.Frame):
 
         self.inputBox = wx.BoxSizer(wx.HORIZONTAL)
         paramsText = wx.StaticText(panel, label=u"输入  ")
-        self.textInput = wx.TextCtrl(panel, size = (400, 20))
-        self.clearButton = wx.Button(panel, label = '清空')
-        self.Bind(wx.EVT_BUTTON, self.on_clear, self.clearButton)
+        self.textInput = wx.TextCtrl(panel, size = (600, 20))
 
         self.inputBox.Add(paramsText, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
         self.inputBox.Add(self.textInput, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
-        self.inputBox.Add(self.clearButton, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
+        # self.inputBox.Add(self.clearButton, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
         mainBox.Add(self.inputBox)
 
         # wallet
@@ -114,6 +112,7 @@ class WalletFrame(wx.Frame):
         self.importKeyButton = wx.Button(self.walletBox, label = 'import_key')
         self.getAccountsButton = wx.Button(self.walletBox, label = 'getAccounts')
         self.transferButton = wx.Button(self.walletBox, label = 'transfer')
+        self.collateralGasButton = wx.Button(self.walletBox, label = 'collateral_gas')
 
         self.Bind(wx.EVT_BUTTON, self.on_wallet_create, self.createWalletButton)
         self.Bind(wx.EVT_BUTTON, self.on_wallet_unlock, self.unlockButton)
@@ -121,6 +120,7 @@ class WalletFrame(wx.Frame):
         self.Bind(wx.EVT_BUTTON, self.on_wallet_importKey, self.importKeyButton)
         self.Bind(wx.EVT_BUTTON, self.on_wallet_getAccounts, self.getAccountsButton)
         self.Bind(wx.EVT_BUTTON, self.on_wallet_transfer, self.transferButton)
+        self.Bind(wx.EVT_BUTTON, self.on_wallet_collateral_gas, self.collateralGasButton)
 
         walletSBS = wx.StaticBoxSizer(self.walletBox, wx.HORIZONTAL)
         walletSBS.Add(self.createWalletButton, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
@@ -129,6 +129,7 @@ class WalletFrame(wx.Frame):
         walletSBS.Add(self.importKeyButton, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
         walletSBS.Add(self.getAccountsButton, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
         walletSBS.Add(self.transferButton, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
+        walletSBS.Add(self.collateralGasButton, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
         mainBox.Add(walletSBS)
 
         self.chainBox = wx.StaticBox(panel, label='chain')
@@ -136,12 +137,14 @@ class WalletFrame(wx.Frame):
         self.objectIDButton = wx.Button(self.chainBox, label = 'get_object')
         self.balanceButton = wx.Button(self.chainBox, label = 'account_balances')
         self.infoButton = wx.Button(self.chainBox, label = 'info')
-        self.transferButton = wx.Button(self.chainBox, label = 'transfer')
-
+        # self.transferButton = wx.Button(self.chainBox, label = 'transfer')
+        self.clearButton = wx.Button(self.chainBox, label = '清空')
+        
         self.Bind(wx.EVT_BUTTON, self.on_get_account, self.queryAccountButton)
         self.Bind(wx.EVT_BUTTON, self.on_get_object, self.objectIDButton)
         self.Bind(wx.EVT_BUTTON, self.on_list_account_balances, self.balanceButton)
         self.Bind(wx.EVT_BUTTON, self.on_info, self.infoButton)
+        self.Bind(wx.EVT_BUTTON, self.on_clear, self.clearButton)
 
         # operationBox = wx.BoxSizer(wx.HORIZONTAL)
         operationBox = wx.StaticBoxSizer(self.chainBox, wx.HORIZONTAL)
@@ -149,7 +152,7 @@ class WalletFrame(wx.Frame):
         operationBox.Add(self.objectIDButton, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
         operationBox.Add(self.balanceButton, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
         operationBox.Add(self.infoButton, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
-        operationBox.Add(self.transferButton, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
+        # operationBox.Add(self.transferButton, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
         operationBox.Add(self.clearButton, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
 
         mainBox.Add(operationBox)
@@ -281,6 +284,15 @@ class WalletFrame(wx.Frame):
         print(">>> transfer {}".format(str(tokens)))
         # result = self.gph.transfer(tokens[1].strip(), tokens[2].strip(), tokens[3].strip(), [tokens[4].strip(), int(tokens[5].strip())], tokens[0].strip())
         result = self.gph.transfer(tokens[1].strip(), tokens[2].strip(), tokens[3].strip(), [tokens[4].strip(), 0], tokens[0].strip())
+        self.show_text(json_dumps(result))
+
+    # update_collateral_for_gas(self, beneficiary, collateral, account=None):
+    def on_wallet_collateral_gas(self, event):
+        params = self.textInput.GetValue()
+        tokens = params.split(',')
+        print(">>> update_collateral_for_gas {}".format(str(tokens)))
+        # result = self.gph.transfer(tokens[1].strip(), tokens[2].strip(), tokens[3].strip(), [tokens[4].strip(), int(tokens[5].strip())], tokens[0].strip())
+        result = self.gph.update_collateral_for_gas(tokens[1].strip(), int(tokens[2].strip()), tokens[0].strip())
         self.show_text(json_dumps(result))
 
 def Main():

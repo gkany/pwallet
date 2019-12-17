@@ -111,6 +111,7 @@ class Key(DataDir):
     __tablename__ = 'keys'
 
     def __init__(self):
+        global g_current_chain
         self.__tablename__ = '{}_{}'.format(self.__tablename__, g_current_chain)
         print(">>>[Key] __tablename__: {}".format(self.__tablename__))
         super(Key, self).__init__()
@@ -118,6 +119,7 @@ class Key(DataDir):
     def exists_table(self):
         """ Check if the database table exists
         """
+        global g_current_chain
         tablename = 'keys_{}'.format(g_current_chain)
         print(">>>[Key][exists_table] __tablename__: {}, new: {}".format(self.__tablename__, tablename))
 
@@ -244,6 +246,7 @@ class Configuration(DataDir):
     }
 
     def __init__(self):
+        global g_current_chain
         self.__tablename__ = '{}_{}'.format(self.__tablename__, g_current_chain)
         print(">>>[Configuration] __tablename__: {}".format(self.__tablename__))
         super(Configuration, self).__init__()
@@ -251,6 +254,7 @@ class Configuration(DataDir):
     def exists_table(self):
         """ Check if the database table exists
         """
+        global g_current_chain
         tablename = 'config_{}'.format(g_current_chain)
         print(">>>[Configuration][exists_table] __tablename__: {}, new: {}".format(self.__tablename__, tablename))
 
