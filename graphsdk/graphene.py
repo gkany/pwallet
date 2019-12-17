@@ -139,6 +139,9 @@ class Graphene(object):
         self.bundle = bool(kwargs.get("bundle", False))
         self.blocking = kwargs.get("blocking", False)
 
+        self.chain = kwargs.get("chain", "testnet")
+        print('kwargs: {}, self.chain: {}'.format( kwargs, self.chain))
+
         # Store config for access through other Classes
         self.config = config
 

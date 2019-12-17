@@ -10,7 +10,6 @@ from threading import Thread, Lock
 from graphsdk.graphene import Graphene, ping
 from graphsdk.account import Account
 from graphsdk.instance import set_shared_graphene_instance
-from graphsdkbase.chains import *
 
 # env = [ u"主网", u"测试网(默认)", u"自定义"]
 # nodeAddresses = {
@@ -19,6 +18,12 @@ from graphsdkbase.chains import *
 #     env[2]: "ws://127.0.0.1:8049"
 # }
 
+env = [ "prod", "testnet", "customize"] #主网 | 测试网(默认) | 自定义
+nodeAddresses = {
+    env[0]: "wss://api.cocosbcx.net",
+    env[1]: "wss://test.cocosbcx.net",
+    env[2]: "ws://127.0.0.1:8049"
+}
 # assets = ["1.3.0", "1.3.1"]  # get_account_balances 默认查询 COCOS 和 GAS
 
 headers = {"content-type": "application/json"}
@@ -57,15 +62,13 @@ class WalletFrame(wx.Frame):
         # self.Center()
         self.titleLock = Lock()
         self.env = env[1] #default testnet
-        global g_current_chain
-        g_current_chain = self.env
         self.nodeAddress = nodeAddresses[self.env]
-        self.initGraphene(self.nodeAddress)
+        self.initGraphene(self.nodeAddress, self.env)
         self.InitUI()
 
-    def initGraphene(self, nodeAddress):
+    def initGraphene(self, nodeAddress, chain):
         if ping(node=nodeAddress, num_retries=1):
-            self.gph = Graphene(node=nodeAddress, num_retries=1) 
+            self.gph = Graphene(node=nodeAddress, num_retries=1, chain=chain) 
             set_shared_graphene_instance(self.gph)
         else:
             self.gph = None
@@ -194,11 +197,8 @@ class WalletFrame(wx.Frame):
 
     def on_env(self, value):
         self.env = value
-        global g_current_chain
-        g_current_chain = self.env
-        print('[on_env] g_current_chain: {}'.format(g_current_chain))
         self.nodeAddress = nodeAddresses[self.env]
-        self.initGraphene(self.nodeAddress)
+        self.initGraphene(self.nodeAddress, self.env)
         self.SetTitle('桌面钱包 -- {}'.format(self.env))
 
     def on_clear(self, event):
@@ -243,14 +243,6 @@ class WalletFrame(wx.Frame):
         if len(password) == 0:
             password = "123456" # default
         self.gph.newWallet(password)
-
-        # if self.gph.wallet.created():
-        #     password = self.textInput.GetValue()
-        #     if len(password) == 0:
-        #         password = "123456" # default
-        #     self.gph.newWallet(password)
-        # else:
-        #     print("wallet already exist. chain: {}".format(g_current_chain))
 
     def on_wallet_unlock(self, event):
         print('>>> on_wallet_unlock')

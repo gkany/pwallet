@@ -57,9 +57,11 @@ class Wallet():
         from .storage import configStorage
         # keyStorage = Key()
         # configStorage = Configuration()
+        self.chain = kwargs.get("chain", "testnet")
+        # print('args: {}, kwargs: {}, self.chain: {}'.format(args, kwargs, self.chain))
 
         # Create Tables if database is brand new
-        if not configStorage.exists_table():
+        if not configStorage.exists_table(self.chain):
             configStorage.create_table()
         self.configStorage = configStorage
 
@@ -85,7 +87,7 @@ class Wallet():
             """
             from .storage import (keyStorage, MasterPassword, newKeyStorage)
             # newKeyStorage = False
-            if not keyStorage.exists_table():
+            if not keyStorage.exists_table(self.chain):
                 newKeyStorage = True
                 keyStorage.create_table()
 
