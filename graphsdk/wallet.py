@@ -55,6 +55,12 @@ class Wallet():
 
     def __init__(self, rpc, *args, **kwargs):
         from .storage import configStorage
+        # keyStorage = Key()
+        # configStorage = Configuration()
+
+        # Create Tables if database is brand new
+        if not configStorage.exists_table():
+            configStorage.create_table()
         self.configStorage = configStorage
 
         # RPC
@@ -77,8 +83,12 @@ class Wallet():
             """ If no keys are provided manually we load the SQLite
                 keyStorage
             """
-            from .storage import (keyStorage,
-                                  MasterPassword)
+            from .storage import (keyStorage, MasterPassword, newKeyStorage)
+            # newKeyStorage = False
+            if not keyStorage.exists_table():
+                newKeyStorage = True
+                keyStorage.create_table()
+
             self.MasterPassword = MasterPassword
             self.keyStorage = keyStorage
 

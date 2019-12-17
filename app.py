@@ -196,6 +196,7 @@ class WalletFrame(wx.Frame):
         self.env = value
         global g_current_chain
         g_current_chain = self.env
+        print('[on_env] g_current_chain: {}'.format(g_current_chain))
         self.nodeAddress = nodeAddresses[self.env]
         self.initGraphene(self.nodeAddress)
         self.SetTitle('桌面钱包 -- {}'.format(self.env))

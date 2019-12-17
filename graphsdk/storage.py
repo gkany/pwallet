@@ -118,6 +118,13 @@ class Key(DataDir):
     def exists_table(self):
         """ Check if the database table exists
         """
+        tablename = 'keys_{}'.format(g_current_chain)
+        print(">>>[Key][exists_table] __tablename__: {}, new: {}".format(self.__tablename__, tablename))
+
+        if self.__tablename__ != tablename:
+            self.__tablename__ = tablename
+            print(">>>[Key][exists_table] __tablename__: {}".format(self.__tablename__))
+
         query = ("SELECT name FROM sqlite_master " +
                  "WHERE type='table' AND name=?",
                  (self.__tablename__, ))
@@ -244,6 +251,12 @@ class Configuration(DataDir):
     def exists_table(self):
         """ Check if the database table exists
         """
+        tablename = 'config_{}'.format(g_current_chain)
+        print(">>>[Configuration][exists_table] __tablename__: {}, new: {}".format(self.__tablename__, tablename))
+
+        if self.__tablename__ != tablename:
+            self.__tablename__ = tablename
+            print(">>>[Configuration][exists_table] __tablename__: {}".format(self.__tablename__))
         query = ("SELECT name FROM sqlite_master " +
                  "WHERE type='table' AND name=?",
                  (self.__tablename__, ))
