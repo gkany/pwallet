@@ -59,7 +59,9 @@ class WalletFrame(wx.Frame):
         self.InitUI()
 
     def initGraphene(self, nodeAddress, chain):
+        print("init graphene: {} {}".format(nodeAddress, chain))
         if ping(node=nodeAddress, num_retries=1):
+            print("init graphene 2222")
             self.gph = Graphene(node=nodeAddress, num_retries=1, chain=chain) 
             set_shared_graphene_instance(self.gph)
         else:
@@ -106,16 +108,15 @@ class WalletFrame(wx.Frame):
         self.lockButton = wx.Button(self.walletBox, label = 'lock')
         self.importKeyButton = wx.Button(self.walletBox, label = 'import_key')
         self.getAccountsButton = wx.Button(self.walletBox, label = 'getAccounts')
-        self.transferButton = wx.Button(self.walletBox, label = 'transfer')
-        self.collateralGasButton = wx.Button(self.walletBox, label = 'collateral_gas')
+        self.suggestKeyButton = wx.Button(self.walletBox, label = 'suggest_brain_key')
+        # suggest_key
 
         self.Bind(wx.EVT_BUTTON, self.on_wallet_create, self.createWalletButton)
         self.Bind(wx.EVT_BUTTON, self.on_wallet_unlock, self.unlockButton)
         self.Bind(wx.EVT_BUTTON, self.on_wallet_lock, self.lockButton)
         self.Bind(wx.EVT_BUTTON, self.on_wallet_importKey, self.importKeyButton)
         self.Bind(wx.EVT_BUTTON, self.on_wallet_getAccounts, self.getAccountsButton)
-        self.Bind(wx.EVT_BUTTON, self.on_wallet_transfer, self.transferButton)
-        self.Bind(wx.EVT_BUTTON, self.on_wallet_collateral_gas, self.collateralGasButton)
+        self.Bind(wx.EVT_BUTTON, self.on_wallet_suggest_key, self.suggestKeyButton)
 
         walletSBS = wx.StaticBoxSizer(self.walletBox, wx.HORIZONTAL)
         walletSBS.Add(self.createWalletButton, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
@@ -123,8 +124,7 @@ class WalletFrame(wx.Frame):
         walletSBS.Add(self.lockButton, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
         walletSBS.Add(self.importKeyButton, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
         walletSBS.Add(self.getAccountsButton, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
-        walletSBS.Add(self.transferButton, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
-        walletSBS.Add(self.collateralGasButton, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
+        walletSBS.Add(self.suggestKeyButton, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
         mainBox.Add(walletSBS)
 
         self.chainBox = wx.StaticBox(panel, label='chain')
@@ -132,13 +132,18 @@ class WalletFrame(wx.Frame):
         self.objectIDButton = wx.Button(self.chainBox, label = 'get_object')
         self.balanceButton = wx.Button(self.chainBox, label = 'account_balances')
         self.infoButton = wx.Button(self.chainBox, label = 'info')
-        # self.transferButton = wx.Button(self.chainBox, label = 'transfer')
+        self.assetButton = wx.Button(self.chainBox, label = 'get_asset')
+        self.transferButton = wx.Button(self.chainBox, label = 'transfer')
+        self.collateralGasButton = wx.Button(self.chainBox, label = 'collateral_gas')
         self.clearButton = wx.Button(self.chainBox, label = '清空')
         
         self.Bind(wx.EVT_BUTTON, self.on_get_account, self.queryAccountButton)
         self.Bind(wx.EVT_BUTTON, self.on_get_object, self.objectIDButton)
         self.Bind(wx.EVT_BUTTON, self.on_list_account_balances, self.balanceButton)
         self.Bind(wx.EVT_BUTTON, self.on_info, self.infoButton)
+        self.Bind(wx.EVT_BUTTON, self.on_get_asset, self.assetButton)
+        self.Bind(wx.EVT_BUTTON, self.on_wallet_transfer, self.transferButton)
+        self.Bind(wx.EVT_BUTTON, self.on_wallet_collateral_gas, self.collateralGasButton)
         self.Bind(wx.EVT_BUTTON, self.on_clear, self.clearButton)
 
         # operationBox = wx.BoxSizer(wx.HORIZONTAL)
@@ -147,7 +152,9 @@ class WalletFrame(wx.Frame):
         operationBox.Add(self.objectIDButton, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
         operationBox.Add(self.balanceButton, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
         operationBox.Add(self.infoButton, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
-        # operationBox.Add(self.transferButton, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
+        operationBox.Add(self.assetButton, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
+        operationBox.Add(self.transferButton, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
+        operationBox.Add(self.collateralGasButton, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
         operationBox.Add(self.clearButton, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
 
         mainBox.Add(operationBox)
@@ -180,6 +187,7 @@ class WalletFrame(wx.Frame):
 
     def on_customize_env(self, event):
         value = self.customizeChainText.GetValue()
+        print("on_customize_env: {}".format(value))
         if value.startswith("ws"):
             nodeAddresses[env[2]] = value
         self.on_env(self.customizeCheck.GetLabel())
@@ -193,6 +201,7 @@ class WalletFrame(wx.Frame):
     def on_env(self, value):
         self.env = value
         self.nodeAddress = nodeAddresses[value]
+        print("on_customize_env: {} {}".format(self.env, self.nodeAddress))
         self.initGraphene(self.nodeAddress, value)
         self.SetTitle('桌面钱包 -- {}'.format(value))
 
@@ -227,7 +236,17 @@ class WalletFrame(wx.Frame):
     def on_list_account_balances(self, event):
         name = self.textInput.GetValue()
         account = Account(name)
-        self.show_text(json_dumps(account.balances))
+        text = []
+        for balance in account.balances:
+            text.append({
+                'symbol': balance['symbol'],
+                'amount': balance['amount']
+            })
+        self.show_text(json_dumps(text))
+
+    def on_get_asset(self, event):
+        asset = self.textInput.GetValue()
+        self.show_text(json_dumps(self.gph.rpc.get_asset(asset)))
 
     def on_info(self, event):
         self.show_text(json_dumps(self.gph.info()))
@@ -260,6 +279,9 @@ class WalletFrame(wx.Frame):
         accounts = self.gph.wallet.getAccounts()
         print(accounts)
         self.show_text(json_dumps(accounts))
+
+    def on_wallet_suggest_key(self, event):
+        self.show_text(json_dumps(self.gph.suggest_key()))
 
     # transfer(self, to, amount, asset, memo=["", 0], account=None):
     def on_wallet_transfer(self, event):
