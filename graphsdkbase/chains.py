@@ -15,5 +15,10 @@ known_chains = {
         "chain_id": "179db3c6a2e08d610f718f05e9cc2aabad62aff80305b9621b162b8b6f2fd79f",
         "core_symbol": "COCOS",
         "prefix": "COCOS"
+    },
+    "local-prod": {
+        "chain_id": "dd896d2d415224156f95e61c93687ccc3fb38a7ec16e02bc509b6510a952936d",
+        "core_symbol": "COCOS",
+        "prefix": "COCOS"
     }
 }
