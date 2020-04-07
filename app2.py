@@ -12,6 +12,7 @@ from graphsdk.account import Account
 from graphsdk.instance import set_shared_graphene_instance
 
 from config import *
+from utils import *
 
 # env = [ "mainnet", "testnet", "customize"]
 # node_addresses = {
@@ -71,8 +72,8 @@ class WalletFrame(wx.Frame):
         self.tree = self.create_TreeCtrl(self.panel_left)
         self.Bind(wx.EVT_TREE_SEL_CHANGING, self.wallet_tree_on_click, self.tree)
 
-        left_boxsizer.Add(self.chain_boxsizer, 1, flag=wx.EXPAND | wx.ALL, border=5)
-        left_boxsizer.Add(self.tree, 9, flag=wx.EXPAND | wx.ALL, border=5)
+        left_boxsizer.Add(self.chain_boxsizer, 1, flag=wx.EXPAND | wx.ALL, border=3)
+        left_boxsizer.Add(self.tree, 9, flag=wx.EXPAND | wx.ALL, border=3)
 
 
         # 为self.panel_right面板设置一个布局管理器
@@ -80,12 +81,42 @@ class WalletFrame(wx.Frame):
         self.right_boxsizer = wx.BoxSizer(wx.VERTICAL)
         self.panel_right.SetSizer(self.right_boxsizer)
 
-        self.right_staticText_BoxSizer = wx.BoxSizer()
-        self.right_static_text = wx.StaticText(self.panel_right, 2, label='Commands')
-        self.right_staticText_BoxSizer.Add(self.right_static_text, 1, flag=wx.EXPAND | wx.ALL, border=5)
+        # self.right_staticText_BoxSizer = wx.BoxSizer()
+        # self.right_static_text = wx.StaticText(self.panel_right, 2, label='Commands')
+        # self.right_staticText_BoxSizer.Add(self.right_static_text, 1, flag=wx.EXPAND | wx.ALL, border=3)
 
-        self.right_boxsizer.Add(self.right_staticText_BoxSizer, proportion=1, flag=wx.EXPAND | wx.ALL, border=5)
-        # self.right_boxsizer.Add(self.right_label_BoxSizer, proportion=1, flag=wx.EXPAND|wx.ALL, border=5)
+        # self.right_boxsizer.Add(self.right_staticText_BoxSizer, proportion=1, flag=wx.EXPAND | wx.ALL, border=3)
+        # self.right_boxsizer.Add(self.right_label_BoxSizer, proportion=1, flag=wx.EXPAND|wx.ALL, border=3)
+
+        ##### test start
+        # label and label BoxSizer | 水平
+        self.right_label_BoxSizer = wx.BoxSizer()
+        self.cmd_label = wx.StaticText(self.panel_right, style=wx.ALIGN_CENTER, label='commands')
+        self.right_label_BoxSizer.Add(self.cmd_label, proportion=1, flag=wx.EXPAND|wx.ALL|wx.ALIGN_CENTER, border=3)
+
+        # param_list and param_list BoxSizer | 垂直
+        self.right_param_BoxSizer = wx.BoxSizer(wx.VERTICAL)
+
+        # Buttons | 水平
+        self.right_buttons_BoxSizer = wx.BoxSizer(wx.VERTICAL)
+        self.cmd_ok_button = wx.Button(self.panel_right, label='执行')
+        self.right_buttons_BoxSizer.Add(self.cmd_ok_button, flag=wx.ALIGN_RIGHT, border=3)
+
+        # result
+        self.right_output_BoxSizer = wx.BoxSizer()
+        self.output_text = wx.TextCtrl(self.panel_right, size = (1000, 768), style = wx.TE_MULTILINE | wx.HSCROLL)
+        self.right_output_BoxSizer.Add(self.output_text, proportion=0, flag=wx.EXPAND|wx.ALL, border=3)
+
+        # layout
+        self.panel_right.SetSizer(self.right_boxsizer)
+        self.right_boxsizer.Add(self.right_label_BoxSizer, flag=wx.EXPAND|wx.ALL, border=3)
+        self.right_boxsizer.Add(self.right_param_BoxSizer, flag=wx.EXPAND|wx.ALL, border=3)
+        self.right_boxsizer.Add(self.right_buttons_BoxSizer, flag=wx.EXPAND|wx.ALL, border=3)
+        self.right_boxsizer.Add(self.right_output_BoxSizer, flag=wx.EXPAND|wx.ALL, border=3)
+
+        # self.right_boxsizer.Hide(self.right_staticText_BoxSizer)
+        # self.right_boxsizer.Layout()
+        ##### test end
 
         self._thread = Thread(target = self.run, args = ())
         self._thread.daemon = True
@@ -98,14 +129,26 @@ class WalletFrame(wx.Frame):
                 if self.gph:
                     info = self.gph.info()
                     head_block_number = info['head_block_number']
-                    self.updateDisplay(head_block_number)
+                    block_msg = "区块高度：{}".format(head_block_number)
+
+                    wallet_status = self.gph.wallet.created()
+                    if wallet_status:
+                        locked_status = self.gph.wallet.locked()
+                        if locked_status:
+                            show_msg = "{} | 钱包已锁定".format(block_msg)
+                        else:
+                            show_msg = "{} | 钱包已解锁".format(block_msg)
+                    else:
+                        show_msg = "{} | 钱包未创建".format(block_msg)
             except Exception as e:
-                print(repr(e))
+                show_msg = repr(e)
+            # print(show_msg)
+            self.updateDisplay(show_msg)
             time.sleep(2)
 
     @call_after
     def updateDisplay(self, message):
-        self.SetTitle('桌面钱包 -- {} | 区块高度：{}'.format(self.env, message))
+        self.SetTitle('桌面钱包 -- {} | {}'.format(self.env, message))
 
     def on_customize_env(self, event):
         value = self.customizeChainText.GetValue()
@@ -128,91 +171,431 @@ class WalletFrame(wx.Frame):
         self.SetTitle('桌面钱包 -- {}'.format(value))
 
     def wallet_tree_on_click(self, event):
+        self.output_text.Clear()
         item = event.GetItem()
-        # 根据不同的item，显示不同的参数列表
-        # 无参command直接显示结果，有参参数列表，弹窗确认，执行后，显示命令和结果
         item_str = self.tree.GetItemText(item)
-        status, result = self.wallet_tree_on_click_impl(item_str)
-        if status:
-            context = '>>> {}\n{}'.format(item_str, result)
-            # if item_str == 'info':
-            #     context += json_dumps(self.gph.info())
-            # self.right_static_text.SetLabel(self.tree.GetItemText(item))
-            self.right_static_text.SetLabel(context)
+        print(">>> {}".format(item_str))
+        self.cmd_label.SetLabel(item_str)
+        result = self.wallet_tree_on_click_impl(item_str)
+        if len(result) > 0:
+            self.show_output_text(result)
 
- 
+    def param_item_BoxSizer(self, parent_panel, label_note):
+        item_BoxSizer = wx.BoxSizer() # 水平: [label, input]
+        param_label = wx.StaticText(parent_panel, label=label_note[0])
+        item_BoxSizer.Add(param_label, proportion=2, flag=wx.EXPAND|wx.ALL, border=3)
+        param_input_text = wx.TextCtrl(parent_panel, value=label_note[1])
+        item_BoxSizer.Add(param_input_text, proportion=8, flag = wx.EXPAND|wx.ALL, border=3)
+        return item_BoxSizer, param_input_text
+
+    def param_item_BoxSizer_v(self, parent_panel, label_note):
+        # item_BoxSizer = wx.BoxSizer(wx.VERTICAL)
+        param1_label = wx.StaticText(parent_panel, label=label_note[0])
+        # item_BoxSizer.Add(param1_label, flag=wx.EXPAND|wx.ALL, border=3)
+        param_input_text = wx.TextCtrl(parent_panel, value=label_note[1])
+        # item_BoxSizer.Add(param_input_text, flag=wx.EXPAND|wx.ALL, border=3)
+        return param1_label, param_input_text
+
+
     def wallet_tree_on_click_impl(self, cmd_str):
+        # clear param BoxSizer
+        self.right_boxsizer.Hide(self.right_param_BoxSizer)
+        self.right_boxsizer.Layout()
+
         cmd = cmd_str.strip()
         result = ''
-        status = True
+        # layout
+        if cmd in no_params_commands:
+            pass 
+        elif cmd in one_params_commands:
+            item_BoxSizer1, self.param1_input_text = self.param_item_BoxSizer(self.panel_right, cmd_param_notes[cmd])
+            self.right_param_BoxSizer.Add(item_BoxSizer1, flag=wx.EXPAND|wx.ALL, border=3)
+            # self.right_boxsizer.Layout()
+        elif cmd in two_params_commands:
+            notes = cmd_param_notes[cmd]
+            item_BoxSizer1, self.param1_input_text = self.param_item_BoxSizer(self.panel_right, notes[0])
+            self.right_param_BoxSizer.Add(item_BoxSizer1, flag=wx.EXPAND|wx.ALL, border=3)
+
+            item_BoxSizer2, self.param2_input_text = self.param_item_BoxSizer(self.panel_right, notes[1])
+            self.right_param_BoxSizer.Add(item_BoxSizer2, flag=wx.EXPAND|wx.ALL, border=3)
+            # self.right_boxsizer.Layout()
+        elif cmd in three_params_commands:
+            notes = cmd_param_notes[cmd]
+            item_BoxSizer1, self.param1_input_text = self.param_item_BoxSizer(self.panel_right, notes[0])
+            self.right_param_BoxSizer.Add(item_BoxSizer1, flag=wx.EXPAND|wx.ALL, border=3)
+
+            item_BoxSizer2, self.param2_input_text = self.param_item_BoxSizer(self.panel_right, notes[1])
+            self.right_param_BoxSizer.Add(item_BoxSizer2, flag=wx.EXPAND|wx.ALL, border=3)
+
+            item_BoxSizer3, self.param3_input_text = self.param_item_BoxSizer(self.panel_right, notes[2])
+            self.right_param_BoxSizer.Add(item_BoxSizer3, flag=wx.EXPAND|wx.ALL, border=3)
+            # self.right_boxsizer.Layout()
+        elif cmd in four_params_commands:
+            notes = cmd_param_notes[cmd]
+            item_BoxSizer1, self.param1_input_text = self.param_item_BoxSizer(self.panel_right, notes[0])
+            self.right_param_BoxSizer.Add(item_BoxSizer1, flag=wx.EXPAND|wx.ALL, border=3)
+
+            item_BoxSizer2, self.param2_input_text = self.param_item_BoxSizer(self.panel_right, notes[1])
+            self.right_param_BoxSizer.Add(item_BoxSizer2, flag=wx.EXPAND|wx.ALL, border=3)
+
+            item_BoxSizer3, self.param3_input_text = self.param_item_BoxSizer(self.panel_right, notes[2])
+            self.right_param_BoxSizer.Add(item_BoxSizer3, flag=wx.EXPAND|wx.ALL, border=3)
+
+            item_BoxSizer4, self.param4_input_text = self.param_item_BoxSizer(self.panel_right, notes[3])
+            self.right_param_BoxSizer.Add(item_BoxSizer4, flag=wx.EXPAND|wx.ALL, border=3)
+            # self.right_boxsizer.Layout()
+        elif cmd in five_params_commands:
+            notes = cmd_param_notes[cmd]
+            item_BoxSizer1, self.param1_input_text = self.param_item_BoxSizer(self.panel_right, notes[0])
+            self.right_param_BoxSizer.Add(item_BoxSizer1, flag=wx.EXPAND|wx.ALL, border=3)
+
+            item_BoxSizer2, self.param2_input_text = self.param_item_BoxSizer(self.panel_right, notes[1])
+            self.right_param_BoxSizer.Add(item_BoxSizer2, flag=wx.EXPAND|wx.ALL, border=3)
+
+            item_BoxSizer3, self.param3_input_text = self.param_item_BoxSizer(self.panel_right, notes[2])
+            self.right_param_BoxSizer.Add(item_BoxSizer3, flag=wx.EXPAND|wx.ALL, border=3)
+
+            item_BoxSizer4, self.param4_input_text = self.param_item_BoxSizer(self.panel_right, notes[3])
+            self.right_param_BoxSizer.Add(item_BoxSizer4, flag=wx.EXPAND|wx.ALL, border=3)
+
+            item_BoxSizer5, self.param5_input_text = self.param_item_BoxSizer(self.panel_right, notes[4])
+            self.right_param_BoxSizer.Add(item_BoxSizer5, flag=wx.EXPAND|wx.ALL, border=3)
+            # self.right_boxsizer.Layout()
+        elif cmd in six_params_commands:
+            notes = cmd_param_notes[cmd]
+            item_BoxSizer1, self.param1_input_text = self.param_item_BoxSizer(self.panel_right, notes[0])
+            self.right_param_BoxSizer.Add(item_BoxSizer1, flag=wx.EXPAND|wx.ALL, border=3)
+
+            item_BoxSizer2, self.param2_input_text = self.param_item_BoxSizer(self.panel_right, notes[1])
+            self.right_param_BoxSizer.Add(item_BoxSizer2, flag=wx.EXPAND|wx.ALL, border=3)
+
+            item_BoxSizer3, self.param3_input_text = self.param_item_BoxSizer(self.panel_right, notes[2])
+            self.right_param_BoxSizer.Add(item_BoxSizer3, flag=wx.EXPAND|wx.ALL, border=3)
+
+            item_BoxSizer4, self.param4_input_text = self.param_item_BoxSizer(self.panel_right, notes[3])
+            self.right_param_BoxSizer.Add(item_BoxSizer4, flag=wx.EXPAND|wx.ALL, border=3)
+
+            item_BoxSizer5, self.param5_input_text = self.param_item_BoxSizer(self.panel_right, notes[4])
+            self.right_param_BoxSizer.Add(item_BoxSizer5, flag=wx.EXPAND|wx.ALL, border=3)
+
+            item_BoxSizer6, self.param6_input_text = self.param_item_BoxSizer(self.panel_right, notes[5])
+            self.right_param_BoxSizer.Add(item_BoxSizer6, flag=wx.EXPAND|wx.ALL, border=3)
+        elif cmd in seven_params_commands:
+            notes = cmd_param_notes[cmd]
+            item_BoxSizer1, self.param1_input_text = self.param_item_BoxSizer(self.panel_right, notes[0])
+            self.right_param_BoxSizer.Add(item_BoxSizer1, flag=wx.EXPAND|wx.ALL, border=3)
+
+            item_BoxSizer2, self.param2_input_text = self.param_item_BoxSizer(self.panel_right, notes[1])
+            self.right_param_BoxSizer.Add(item_BoxSizer2, flag=wx.EXPAND|wx.ALL, border=3)
+
+            item_BoxSizer3, self.param3_input_text = self.param_item_BoxSizer(self.panel_right, notes[2])
+            self.right_param_BoxSizer.Add(item_BoxSizer3, flag=wx.EXPAND|wx.ALL, border=3)
+
+            item_BoxSizer4, self.param4_input_text = self.param_item_BoxSizer(self.panel_right, notes[3])
+            self.right_param_BoxSizer.Add(item_BoxSizer4, flag=wx.EXPAND|wx.ALL, border=3)
+
+            item_BoxSizer5, self.param5_input_text = self.param_item_BoxSizer(self.panel_right, notes[4])
+            self.right_param_BoxSizer.Add(item_BoxSizer5, flag=wx.EXPAND|wx.ALL, border=3)
+
+            item_BoxSizer6, self.param6_input_text = self.param_item_BoxSizer(self.panel_right, notes[5])
+            self.right_param_BoxSizer.Add(item_BoxSizer6, flag=wx.EXPAND|wx.ALL, border=3)
+
+            item_BoxSizer7, self.param7_input_text = self.param_item_BoxSizer(self.panel_right, notes[6])
+            self.right_param_BoxSizer.Add(item_BoxSizer7, flag=wx.EXPAND|wx.ALL, border=3)
+        self.right_boxsizer.Layout()
+
+        # bind button event
         if cmd == 'info':
+            self.Bind(wx.EVT_BUTTON, self.cmd_button_on_click_info, self.cmd_ok_button)
             result = self.gph.info()
+        elif cmd == "suggest_brain_key":
+            self.Bind(wx.EVT_BUTTON, self.cmd_button_on_click_suggest_key, self.cmd_ok_button)
+            result = self.gph.suggest_key()
+        elif cmd == 'list_my_accounts':
+            self.Bind(wx.EVT_BUTTON, self.cmd_button_on_click_list_my_accounts, self.cmd_ok_button)
+            result = self.gph.wallet.getAccounts()
         elif cmd == 'get_account':
-            # label and label BoxSizer | 水平
-            self.right_label_BoxSizer = wx.BoxSizer()
-            cmd_label = wx.StaticText(self.panel_right, style=wx.ALIGN_CENTER, label=cmd)
-            self.right_label_BoxSizer.Add(cmd_label, proportion=1, flag=wx.EXPAND|wx.ALL|wx.ALIGN_CENTER, border=5)
-
-            # param_list and param_list BoxSizer | 垂直
-            self.right_param_BoxSizer = wx.BoxSizer(wx.VERTICAL)
-            param1_label = wx.StaticText(self.panel_right, label="Account Name or ID")
-            # self.right_param_BoxSizer.Add(param1_label, proportion=2, flag=wx.EXPAND|wx.ALL, border=5)
-            self.right_param_BoxSizer.Add(param1_label, flag=wx.EXPAND|wx.ALL, border=5)
-            self.param1_input_text = wx.TextCtrl(self.panel_right, value='eg: 1.2.3 or null-account')
-            # self.right_param_BoxSizer.Add(self.param1_input_text, proportion=8, flag=wx.EXPAND|wx.ALL, border=5)
-            self.right_param_BoxSizer.Add(self.param1_input_text, flag=wx.EXPAND|wx.ALL, border=5)
-
-            # Buttons | 水平
-            self.right_buttons_BoxSizer = wx.BoxSizer(wx.VERTICAL)
-            self.cmd_ok_button = wx.Button(self.panel_right, label='OK')
-            # self.right_buttons_BoxSizer.Add(self.cmd_ok_button, proportion=6, flag=wx.EXPAND|wx.ALL, border=5)
-            self.right_buttons_BoxSizer.Add(self.cmd_ok_button, flag=wx.ALIGN_RIGHT, border=5)
-            # self.buttonBox.Add(self.sendButton, proportion=2, flag=wx.EXPAND|wx.ALL, border=5)
             self.Bind(wx.EVT_BUTTON, self.cmd_button_on_click_get_account, self.cmd_ok_button)
+        elif cmd == 'list_account_balances':
+            self.Bind(wx.EVT_BUTTON, self.cmd_button_on_click_account_balances, self.cmd_ok_button)
+        elif cmd == 'get_object':
+            self.Bind(wx.EVT_BUTTON, self.cmd_button_on_click_unlock, self.cmd_ok_button)
+        elif cmd == "get_asset":
+            self.Bind(wx.EVT_BUTTON, self.cmd_button_on_click_get_asset, self.cmd_ok_button)
+        elif cmd == "unlock":
+            self.Bind(wx.EVT_BUTTON, self.cmd_button_on_click_unlock, self.cmd_ok_button)
+        elif cmd == "set_password":
+            self.Bind(wx.EVT_BUTTON, self.cmd_button_on_click_unlock, self.cmd_ok_button)
+        elif cmd == "lock":
+            self.Bind(wx.EVT_BUTTON, self.cmd_button_on_click_lock, self.cmd_ok_button)
+            result = self.gph.wallet.lock()
+        elif cmd == "transfer":
+            self.Bind(wx.EVT_BUTTON, self.cmd_button_on_click_transfer, self.cmd_ok_button)
+        elif cmd == "create_account":
+            self.Bind(wx.EVT_BUTTON, self.cmd_button_on_click_create_account, self.cmd_ok_button)
+        try:
+            result = json_dumps(result)
+        except Exception as e:
+            result = '{} exception. {}'.format(cmd_str, repr(e))
+        return result
 
 
-            # result
-            self.right_output_BoxSizer = wx.BoxSizer()
-            self.output_text = wx.TextCtrl(self.panel_right, size = (1000, 768), style = wx.TE_MULTILINE | wx.HSCROLL)
-            self.right_output_BoxSizer.Add(self.output_text, proportion=0, flag=wx.EXPAND|wx.ALL, border=5)
+    def wallet_tree_on_click_impl_old(self, cmd_str):
+        # clear param BoxSizer
+        self.right_boxsizer.Hide(self.right_param_BoxSizer)
+        self.right_boxsizer.Layout()
 
-            # layout
-            self.panel_right.SetSizer(self.right_boxsizer)
-            # self.right_boxsizer.Add(self.right_label_BoxSizer, proportion=1, flag=wx.EXPAND|wx.ALL, border=5)
-            # self.right_boxsizer.Add(self.right_param_BoxSizer, proportion=4, flag=wx.EXPAND|wx.ALL, border=5)
-            # self.right_boxsizer.Add(self.right_buttons_BoxSizer, proportion=1, flag=wx.EXPAND|wx.ALL, border=5)
-            # self.right_boxsizer.Add(self.right_output_BoxSizer, proportion=4, flag=wx.EXPAND|wx.ALL, border=5)
-            self.right_boxsizer.Add(self.right_label_BoxSizer, flag=wx.EXPAND|wx.ALL, border=5)
-            self.right_boxsizer.Add(self.right_param_BoxSizer, flag=wx.EXPAND|wx.ALL, border=5)
-            self.right_boxsizer.Add(self.right_buttons_BoxSizer, flag=wx.EXPAND|wx.ALL, border=5)
-            self.right_boxsizer.Add(self.right_output_BoxSizer, flag=wx.EXPAND|wx.ALL, border=5)
+        cmd = cmd_str.strip()
+        result = ''
+        if cmd == 'info':
+            self.Bind(wx.EVT_BUTTON, self.cmd_button_on_click_info, self.cmd_ok_button)
+            result = self.gph.info()
+        elif cmd == "suggest_brain_key":
+            self.Bind(wx.EVT_BUTTON, self.cmd_button_on_click_suggest_key, self.cmd_ok_button)
+            result = self.gph.suggest_key()
+        elif cmd == 'list_my_accounts':
+            self.Bind(wx.EVT_BUTTON, self.cmd_button_on_click_list_my_accounts, self.cmd_ok_button)
+            result = self.gph.wallet.getAccounts()
+        elif cmd == 'get_account':
+            # param
+            # param1_label = wx.StaticText(self.panel_right, label="Account Name or ID")
+            # self.right_param_BoxSizer.Add(param1_label, flag=wx.EXPAND|wx.ALL, border=3)
+            # self.param1_input_text = wx.TextCtrl(self.panel_right, value='eg: 1.2.3 or null-account')
+            # self.right_param_BoxSizer.Add(self.param1_input_text, flag=wx.EXPAND|wx.ALL, border=3)
 
-            self.right_boxsizer.Hide(self.right_staticText_BoxSizer)
+            # self.Bind(wx.EVT_BUTTON, self.cmd_button_on_click_get_account, self.cmd_ok_button)
+            # self.right_boxsizer.Layout()
+
+            item_BoxSizer1, self.param1_input_text = self.param_item_BoxSizer(self.panel_right, cmd_param_notes[cmd])
+            self.right_param_BoxSizer.Add(item_BoxSizer1, flag=wx.EXPAND|wx.ALL, border=3)
+            self.Bind(wx.EVT_BUTTON, self.cmd_button_on_click_get_account, self.cmd_ok_button)
             self.right_boxsizer.Layout()
+        elif cmd == 'list_account_balances':
+            # param
+            # param1_label = wx.StaticText(self.panel_right, label="Account Name or ID")
+            # self.right_param_BoxSizer.Add(param1_label, flag=wx.EXPAND|wx.ALL, border=3)
+            # self.param1_input_text = wx.TextCtrl(self.panel_right, value='eg: 1.2.3 or null-account')
+            # self.right_param_BoxSizer.Add(self.param1_input_text, flag=wx.EXPAND|wx.ALL, border=3)
 
-            status = False
-        
-        if status:
-            try:
-                result = json_dumps(result)
-            except Exception as e:
-                result = '{} exception. {}'.format(cmd_str, repr(e))
-        return status, result
+            # self.Bind(wx.EVT_BUTTON, self.cmd_button_on_click_account_balances, self.cmd_ok_button)
+            # self.right_boxsizer.Layout()
+            item_BoxSizer1, self.param1_input_text = self.param_item_BoxSizer(self.panel_right, cmd_param_notes[cmd])
+            self.right_param_BoxSizer.Add(item_BoxSizer1, flag=wx.EXPAND|wx.ALL, border=3)
+            self.Bind(wx.EVT_BUTTON, self.cmd_button_on_click_account_balances, self.cmd_ok_button)
+            self.right_boxsizer.Layout()
+        elif cmd == 'get_object':
+            # param
+            # param1_label = wx.StaticText(self.panel_right, label=cmd_param_notes[cmd][0])
+            # self.right_param_BoxSizer.Add(param1_label, flag=wx.EXPAND|wx.ALL, border=3)
+            # self.param1_input_text = wx.TextCtrl(self.panel_right, value=cmd_param_notes[cmd][1])
+            # self.right_param_BoxSizer.Add(self.param1_input_text, flag=wx.EXPAND|wx.ALL, border=3)
+            # self.Bind(wx.EVT_BUTTON, self.cmd_button_on_click_get_object, self.cmd_ok_button)
+            # self.right_boxsizer.Layout()
+            item_BoxSizer1, self.param1_input_text = self.param_item_BoxSizer(self.panel_right, cmd_param_notes[cmd])
+            self.right_param_BoxSizer.Add(item_BoxSizer1, flag=wx.EXPAND|wx.ALL, border=3)
+            self.Bind(wx.EVT_BUTTON, self.cmd_button_on_click_unlock, self.cmd_ok_button)
+            self.right_boxsizer.Layout()
+        elif cmd == "get_asset":
+            item_BoxSizer1, self.param1_input_text = self.param_item_BoxSizer(self.panel_right, cmd_param_notes[cmd])
+            self.right_param_BoxSizer.Add(item_BoxSizer1, flag=wx.EXPAND|wx.ALL, border=3)
+            self.Bind(wx.EVT_BUTTON, self.cmd_button_on_click_get_asset, self.cmd_ok_button)
+            self.right_boxsizer.Layout()
+        elif cmd == "unlock":
+            item_BoxSizer1, self.param1_input_text = self.param_item_BoxSizer(self.panel_right, cmd_param_notes[cmd])
+            self.right_param_BoxSizer.Add(item_BoxSizer1, flag=wx.EXPAND|wx.ALL, border=3)
+            self.Bind(wx.EVT_BUTTON, self.cmd_button_on_click_unlock, self.cmd_ok_button)
+            self.right_boxsizer.Layout()
+        elif cmd == "set_password":
+            item_BoxSizer1, self.param1_input_text = self.param_item_BoxSizer(self.panel_right, cmd_param_notes[cmd])
+            self.right_param_BoxSizer.Add(item_BoxSizer1, flag=wx.EXPAND|wx.ALL, border=3)
+            self.Bind(wx.EVT_BUTTON, self.cmd_button_on_click_unlock, self.cmd_ok_button)
+            self.right_boxsizer.Layout()
+        elif cmd == "lock":
+            self.Bind(wx.EVT_BUTTON, self.cmd_button_on_click_lock, self.cmd_ok_button)
+            result = self.gph.wallet.lock()
+        elif cmd == "transfer":
+            notes = cmd_param_notes[cmd]
+            item_BoxSizer1, self.param1_input_text = self.param_item_BoxSizer(self.panel_right, notes[0])
+            self.right_param_BoxSizer.Add(item_BoxSizer1, flag=wx.EXPAND|wx.ALL, border=3)
+
+            item_BoxSizer2, self.param2_input_text = self.param_item_BoxSizer(self.panel_right, notes[1])
+            self.right_param_BoxSizer.Add(item_BoxSizer2, flag=wx.EXPAND|wx.ALL, border=3)
+
+            item_BoxSizer3, self.param3_input_text = self.param_item_BoxSizer(self.panel_right, notes[2])
+            self.right_param_BoxSizer.Add(item_BoxSizer3, flag=wx.EXPAND|wx.ALL, border=3)
+
+            item_BoxSizer4, self.param4_input_text = self.param_item_BoxSizer(self.panel_right, notes[3])
+            self.right_param_BoxSizer.Add(item_BoxSizer4, flag=wx.EXPAND|wx.ALL, border=3)
+
+            item_BoxSizer5, self.param5_input_text = self.param_item_BoxSizer(self.panel_right, notes[4])
+            self.right_param_BoxSizer.Add(item_BoxSizer5, flag=wx.EXPAND|wx.ALL, border=3)
+
+            self.Bind(wx.EVT_BUTTON, self.cmd_button_on_click_transfer, self.cmd_ok_button)
+            self.right_boxsizer.Layout()
+        elif cmd == "create_account":
+            notes = cmd_param_notes[cmd]
+            item_BoxSizer1, self.param1_input_text = self.param_item_BoxSizer(self.panel_right, notes[0])
+            self.right_param_BoxSizer.Add(item_BoxSizer1, flag=wx.EXPAND|wx.ALL, border=3)
+
+            item_BoxSizer2, self.param2_input_text = self.param_item_BoxSizer(self.panel_right, notes[1])
+            self.right_param_BoxSizer.Add(item_BoxSizer2, flag=wx.EXPAND|wx.ALL, border=3)
+
+            item_BoxSizer3, self.param3_input_text = self.param_item_BoxSizer(self.panel_right, notes[2])
+            self.right_param_BoxSizer.Add(item_BoxSizer3, flag=wx.EXPAND|wx.ALL, border=3)
+
+            item_BoxSizer4, self.param4_input_text = self.param_item_BoxSizer(self.panel_right, notes[3])
+            self.right_param_BoxSizer.Add(item_BoxSizer4, flag=wx.EXPAND|wx.ALL, border=3)
+
+            item_BoxSizer5, self.param5_input_text = self.param_item_BoxSizer(self.panel_right, notes[4])
+            self.right_param_BoxSizer.Add(item_BoxSizer5, flag=wx.EXPAND|wx.ALL, border=3)
+
+            self.Bind(wx.EVT_BUTTON, self.cmd_button_on_click_create_account, self.cmd_ok_button)
+            self.right_boxsizer.Layout()
+        try:
+            result = json_dumps(result)
+        except Exception as e:
+            result = '{} exception. {}'.format(cmd_str, repr(e))
+        return result
+
 
     def show_output_text(self, text, is_clear_text=True):
+        print("text: {}".format(text))
         if is_clear_text:
             self.output_text.Clear()
-        self.output_text.AppendText(text)
+        self.output_text.SetValue(text)
         self.output_text.AppendText('\n')
+
+    def cmd_button_on_click_unlock(self, event):
+        password = self.param1_input_text.GetValue().strip()
+        if len(password) == 0:
+            password = "123456" # default
+        try:
+            self.gph.wallet.unlock(password)
+            text = "钱包解锁成功!"
+        except Exception as e:
+            text = "钱包解锁失败, {}".format(repr(e))
+        self.show_output_text(text)
+
+    def cmd_button_on_click_lock(self, event):
+        try:
+            self.gph.wallet.lock()
+            text = "钱包锁定成功!"
+        except Exception as e:
+            text = "钱包锁定失败, {}".format(repr(e))
+        self.show_output_text(text)
+
+    def cmd_button_on_click_setpassword(self, event):
+        password = self.param1_input_text.GetValue().strip()
+        if len(password) == 0:
+            password = "123456" # default
+        try:
+            self.gph.wallet.changePassphrase(password)
+            text = "钱包重置密码成功!"
+        except Exception as e:
+            text = "钱包重置密码失败, {}".format(repr(e))
+        self.show_output_text(text)
 
     def cmd_button_on_click_get_account(self, event):
         name = self.param1_input_text.GetValue()
-        if len(name.split(".")) == 3:
-            text = self.gph.rpc.get_object(name)
-        else:
+        print("name: {}".format(name))
+        try:
+            if len(name.split(".")) == 3:
+                text = self.gph.rpc.get_object(name)
+            else:
+                account = Account(name)
+                text = account.accounts_cache[name]
+            text = json_dumps(text)
+        except Exception as e:
+            text = "执行失败, {}".format(repr(e))
+        self.show_output_text(text)
+
+    def cmd_button_on_click_get_object(self, event):
+        object_id = self.param1_input_text.GetValue()
+        object_id = object_id.strip()
+        print("name: {}".format(object_id))
+        try:
+            if len(object_id.split(".")) == 3:
+                text = self.gph.rpc.get_object(object_id)
+            else:
+                text = 'param({}) error'.format(object_id)
+            text = json_dumps(text)
+        except Exception as e:
+            text = "执行失败, {}".format(repr(e))
+        self.show_output_text(text)
+
+    def cmd_button_on_click_get_asset(self, event):
+        asset_symbol_or_id = self.param1_input_text.GetValue().strip()
+        # asset_symbol_or_id = self.params_input[0].GetValue().strip()
+        print("name: {}".format(asset_symbol_or_id))
+        try:
+            text = json_dumps(self.gph.rpc.get_asset(asset_symbol_or_id))
+        except Exception as e:
+            text = "执行失败, {}".format(repr(e))
+        self.show_output_text(text)
+
+    def cmd_button_on_click_transfer(self, event):
+        from_account = self.param1_input_text.GetValue().strip()
+        to_account = self.param2_input_text.GetValue().strip()
+        amount = self.param3_input_text.GetValue().strip()
+        asset = self.param4_input_text.GetValue().strip()
+        memo = self.param5_input_text.GetValue().strip()
+        try:
+            result = self.gph.transfer(to_account, amount, asset, [memo, 0], from_account)
+            text = json_dumps(result)
+        except Exception as e:
+            text = "执行失败, {}".format(repr(e))
+        self.show_output_text(text)
+
+    def cmd_button_on_click_create_account(self, event):
+        account_name = self.param1_input_text.GetValue().strip()
+        owner_key = self.param2_input_text.GetValue().strip()
+        active_key = self.param3_input_text.GetValue().strip()
+        memo_key = self.param4_input_text.GetValue().strip()
+        register = self.param5_input_text.GetValue().strip()
+        try:
+            result = self.gph.create_account(account_name=name, registrar=registrar,
+                        owner_key=owner_key, active_key=active_key, memo_key=memo_key)
+            text = json_dumps(result)
+        except Exception as e:
+            text = "执行失败, {}".format(repr(e))
+        self.show_output_text(text)
+
+    def cmd_button_on_click_account_balances(self, event):
+        name = self.param1_input_text.GetValue()
+        print("name: {}".format(name))
+        try:
             account = Account(name)
-            text = account.accounts_cache[name]
-        self.show_output_text(json_dumps(text))
+            text = []
+            for balance in account.balances:
+                text.append({
+                    'symbol': balance['symbol'],
+                    'amount': balance['amount']
+                })
+        except Exception as e:
+            text = "执行失败, {}".format(repr(e))
+        self.show_output_text(text)
+
+    def cmd_button_on_click_list_my_accounts(self, event):
+        try:
+            accounts = self.gph.wallet.getAccounts()
+            text = json_dumps(accounts)
+        except Exception as e:
+            text = "执行失败, {}".format(repr(e))
+        self.show_output_text(text)
+
+    def cmd_button_on_click_info(self, event):
+        try:
+            text = json_dumps(self.gph.info())
+        except Exception as e:
+            text = "执行失败, {}".format(repr(e))
+        self.show_output_text(text)
+
+    def cmd_button_on_click_suggest_key(self, event):
+        try:
+            text = json_dumps(self.gph.suggest_key())
+        except Exception as e:
+            text = "执行失败, {}".format(repr(e))
+        self.show_output_text(text)
 
     def create_chain_BoxSizer(self, parent):
         chain_staticBox = wx.StaticBox(parent, label=u'请选择您使用的链: ')
@@ -253,26 +636,26 @@ class WalletFrame(wx.Frame):
         tree.Expand(root)
         tree.SelectItem(root)
  
-        # chain
-        tree.AppendItem(item_chain, 'info', 1)
+        # tree item
+        for command in wallet_chain_commands:
+            tree.AppendItem(item_chain, command, 1)
         tree.Expand(item_chain)
 
-        # 给item_wallet节点添加5个子节点并展开
         for command in wallet_wallet_commands:
             tree.AppendItem(item_wallet, command, 1)
-        # tree.AppendItem(item_wallet, 'lock', 1)
-        # tree.AppendItem(item_wallet, 'unlock', 1)
-        # tree.AppendItem(item_wallet, 'set_password', 1)
-        # tree.AppendItem(item_wallet, 'get_accounts', 1)
-        # tree.AppendItem(item_wallet, 'suggest_brain_key', 1)
         tree.Expand(item_wallet)
  
-        # 给item_account节点添加5个子节点并展开
-        tree.AppendItem(item_account, 'get_account', 1)
-        tree.AppendItem(item_account, 'list_account_balances', 1)
-        tree.AppendItem(item_account, 'create_account', 1)
-        tree.AppendItem(item_account, 'update_account', 1)
+        for command in wallet_account_commands:
+            tree.AppendItem(item_account, command, 1)
         tree.Expand(item_account)
+
+        for command in wallet_asset_commands:
+            tree.AppendItem(item_asset, command, 1)
+        tree.Expand(item_asset)
+
+        for command in wallet_contract_commands:
+            tree.AppendItem(item_contract, command, 1)
+        tree.Expand(item_contract)
  
         # 返回树对象
         return tree
@@ -280,8 +663,7 @@ class WalletFrame(wx.Frame):
  
 class App(wx.App):
     def OnInit(self):
-        # 创建窗口对象
-        frame = WalletFrame()
+        frame = WalletFrame()  # 创建窗口对象
         frame.Show()
         return True
  
