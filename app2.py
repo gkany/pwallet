@@ -14,13 +14,6 @@ from graphsdk.instance import set_shared_graphene_instance
 from config import *
 from utils import *
 
-# env = [ "mainnet", "testnet", "customize"]
-# node_addresses = {
-#     env[0]: "wss://api.cocosbcx.net",
-#     env[1]: "wss://test.cocosbcx.net", 
-#     env[2]: "ws://127.0.0.1:8049"
-# }
-
 def json_dumps(json_data):
     return json.dumps(json_data, indent=4)
 
@@ -333,6 +326,11 @@ class WalletFrame(wx.Frame):
             self.Bind(wx.EVT_BUTTON, self.cmd_button_on_click_transfer, self.cmd_ok_button)
         elif cmd == "create_account":
             self.Bind(wx.EVT_BUTTON, self.cmd_button_on_click_create_account, self.cmd_ok_button)
+        elif cmd == "update_collateral_for_gas":
+            self.Bind(wx.EVT_BUTTON, self.cmd_button_on_click_collateral_gas, self.cmd_ok_button)
+        elif cmd == "get_account_history":
+            self.Bind(wx.EVT_BUTTON, self.cmd_button_on_click_account_history, self.cmd_ok_button)
+
         try:
             result = json_dumps(result)
         except Exception as e:
@@ -462,7 +460,7 @@ class WalletFrame(wx.Frame):
         print("text: {}".format(text))
         if is_clear_text:
             self.output_text.Clear()
-        self.output_text.SetValue(text)
+        self.output_text.AppendText(text)
         self.output_text.AppendText('\n')
 
     def cmd_button_on_click_unlock(self, event):
@@ -546,6 +544,31 @@ class WalletFrame(wx.Frame):
             text = "执行失败, {}".format(repr(e))
         self.show_output_text(text)
 
+    def cmd_button_on_click_account_history(self, event):
+        account = self.param1_input_text.GetValue().strip()
+        limit = self.param2_input_text.GetValue().strip()
+        start, stop  = "1.11.0", "1.11.0"
+        limit = min(100, int(limit))
+        try:
+            result = self.gph.rpc.get_account_history(account, stop, limit, start)
+            text = json_dumps(result)
+        except Exception as e:
+            text = "执行失败, {}".format(repr(e))
+        self.show_output_text(text)
+
+    def cmd_button_on_click_collateral_gas(self, event):
+        from_account = self.param1_input_text.GetValue().strip()
+        beneficiary = self.param2_input_text.GetValue().strip()
+        collateral = self.param3_input_text.GetValue().strip()
+        try:
+            result = self.gph.update_collateral_for_gas(beneficiary, int(collateral), from_account)
+            text = json_dumps(result)
+            print("############")
+            print(text)
+        except Exception as e:
+            text = "执行失败, {}".format(repr(e))
+        self.show_output_text(text)
+
     def cmd_button_on_click_create_account(self, event):
         account_name = self.param1_input_text.GetValue().strip()
         owner_key = self.param2_input_text.GetValue().strip()
@@ -571,6 +594,7 @@ class WalletFrame(wx.Frame):
                     'symbol': balance['symbol'],
                     'amount': balance['amount']
                 })
+            text = json_dumps(text)
         except Exception as e:
             text = "执行失败, {}".format(repr(e))
         self.show_output_text(text)
