@@ -5,7 +5,6 @@ from graphsdkbase import bip38
 from graphsdkbase.account import PrivateKey, GPHPrivateKey
 
 from .account import Account
-from .storage import Configuration, Key, MasterPassword
 from .exceptions import (
     InvalidWifError,
     WalletExists,
@@ -54,17 +53,9 @@ class Wallet():
     keys = {}  # struct with pubkey as key and wif as value
     keyMap = {}  # type:wif pairs to force certain keys
 
-    def __init__(self, rpc, rpc_user, rpc_password, *args, **kwargs):
-        self.current_chain = kwargs.get("current_chain", "testnet")
-        print('[Wallet][__init__]args: {}, kwargs: {}, self.current_chain: {}'.format(args, kwargs, self.current_chain))
-
-        self.keyStorage = Key(current_chain=self.current_chain)
-        self.configStorage = Configuration(current_chain=self.current_chain)
-
-        # Create Tables if database is brand new
-        if not self.configStorage.exists_table():
-            self.configStorage.create_table()
-        # self.configStorage = configStorage
+    def __init__(self, rpc, *args, **kwargs):
+        from .storage import configStorage
+        self.configStorage = configStorage
 
         # RPC
         Wallet.rpc = rpc
@@ -86,11 +77,10 @@ class Wallet():
             """ If no keys are provided manually we load the SQLite
                 keyStorage
             """
-            if not self.keyStorage.exists_table():
-                self.keyStorage.create_table()
-
-            self.MasterPassword = MasterPassword(rpc_password, self.current_chain)
-            # self.keyStorage = keyStorage
+            from .storage import (keyStorage,
+                                  MasterPassword)
+            self.MasterPassword = MasterPassword
+            self.keyStorage = keyStorage
 
     def setKeys(self, loadkeys):
         """ This method is strictly only for in memory keys that are
@@ -173,7 +163,7 @@ class Wallet():
         """
         if self.created():
             raise WalletExists("You already have created a wallet!")
-        self.masterpwd = MasterPassword(pwd)
+        self.masterpwd = self.MasterPassword(pwd)
         self.masterpassword = self.masterpwd.decrypted_master
 
     def encrypt_wif(self, wif):

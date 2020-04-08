@@ -28,7 +28,7 @@ from .objects import (
     Memo_variant
 )
 
-# from graphsdk.storage import configStorage as config
+from graphsdk.storage import configStorage as config
 # default_prefix = config["default_prefix"]
 
 
