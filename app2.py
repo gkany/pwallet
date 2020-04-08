@@ -1,6 +1,7 @@
 #-*- coding: utf-8  -*-
 
 import wx
+import wx.adv
 import time
 import json
 import requests
@@ -9,6 +10,7 @@ from threading import Thread, Lock
 
 from graphsdk.graphene import Graphene, ping
 from graphsdk.account import Account
+from graphsdk.contract import Contract
 from graphsdk.instance import set_shared_graphene_instance
 
 from config import *
@@ -22,7 +24,6 @@ def call_after(func):
         return wx.CallAfter(func, *args, **kwargs)
     return _wrapper
 
-# 自定义窗口类WalletFrame
 class WalletFrame(wx.Frame):
     def __init__(self, *args, **kwargs):
         super(WalletFrame, self).__init__(*args, **kwargs)
@@ -30,14 +31,15 @@ class WalletFrame(wx.Frame):
         # self.titleLock = Lock()
         self.env = env[1] #default testnet
         self.node_address = node_addresses[self.env]
+        self.faucet_url = faucet_urls[self.env]
         self.initGraphene(self.node_address, self.env)
         self.InitUI()
 
-    def initGraphene(self, node_address, chain):
-        print("init graphene: {} {}".format(node_address, chain))
+    def initGraphene(self, node_address, current_chain):
+        print("init graphene: {} {}".format(node_address, current_chain))
         if ping(node=node_address, num_retries=1):
             print("init graphene 2222")
-            self.gph = Graphene(node=node_address, num_retries=1, chain=chain) 
+            self.gph = Graphene(node=node_address, num_retries=1, current_chain=current_chain) 
             set_shared_graphene_instance(self.gph)
         else:
             self.gph = None
@@ -45,8 +47,15 @@ class WalletFrame(wx.Frame):
     def InitUI(self):
         super().__init__(parent=None, title="pWallet", size=(900, 600))
         self.SetTitle('桌面钱包 -- {}'.format(self.env))
+        self.walletlogo = wx.Icon('./icons/walletlogo.ico', wx.BITMAP_TYPE_ICO)
+        self.SetIcon(self.walletlogo)  
+
+        # self.taskBar_icon = wx.adv.TaskBarIcon()
+        # self.taskBar_icon.SetIcon(self.walletlogo, "pWallet")
+
         self.SetSize(size=(900, 600))
         self.Center()
+
 
         sp_window = wx.SplitterWindow(parent=self, id=-1)
         self.panel_left = wx.Panel(parent=sp_window, name="Wallet")
@@ -312,13 +321,13 @@ class WalletFrame(wx.Frame):
         elif cmd == 'list_account_balances':
             self.Bind(wx.EVT_BUTTON, self.cmd_button_on_click_account_balances, self.cmd_ok_button)
         elif cmd == 'get_object':
-            self.Bind(wx.EVT_BUTTON, self.cmd_button_on_click_unlock, self.cmd_ok_button)
+            self.Bind(wx.EVT_BUTTON, self.cmd_button_on_click_get_object, self.cmd_ok_button)
         elif cmd == "get_asset":
             self.Bind(wx.EVT_BUTTON, self.cmd_button_on_click_get_asset, self.cmd_ok_button)
         elif cmd == "unlock":
             self.Bind(wx.EVT_BUTTON, self.cmd_button_on_click_unlock, self.cmd_ok_button)
         elif cmd == "set_password":
-            self.Bind(wx.EVT_BUTTON, self.cmd_button_on_click_unlock, self.cmd_ok_button)
+            self.Bind(wx.EVT_BUTTON, self.cmd_button_on_click_setpassword, self.cmd_ok_button)
         elif cmd == "lock":
             self.Bind(wx.EVT_BUTTON, self.cmd_button_on_click_lock, self.cmd_ok_button)
             result = self.gph.wallet.lock()
@@ -330,6 +339,31 @@ class WalletFrame(wx.Frame):
             self.Bind(wx.EVT_BUTTON, self.cmd_button_on_click_collateral_gas, self.cmd_ok_button)
         elif cmd == "get_account_history":
             self.Bind(wx.EVT_BUTTON, self.cmd_button_on_click_account_history, self.cmd_ok_button)
+        elif cmd == "get_contract":
+            self.Bind(wx.EVT_BUTTON, self.cmd_button_on_click_get_contract, self.cmd_ok_button)
+        elif cmd == "get_transaction_by_id":
+            self.Bind(wx.EVT_BUTTON, self.cmd_button_on_click_tx_by_id, self.cmd_ok_button)
+        elif cmd == "get_transaction_in_block_info":
+            self.Bind(wx.EVT_BUTTON, self.cmd_button_on_click_tx_in_block_info, self.cmd_ok_button)
+        elif cmd == "get_chain_properties":
+            self.Bind(wx.EVT_BUTTON, self.cmd_button_on_click_info, self.cmd_ok_button)
+            result = self.gph.rpc.get_chain_properties()
+        elif cmd == "get_global_properties":
+            self.Bind(wx.EVT_BUTTON, self.cmd_button_on_click_info, self.cmd_ok_button)
+            result = self.gph.rpc.get_global_properties()
+        elif cmd == "get_config":
+            self.Bind(wx.EVT_BUTTON, self.cmd_button_on_click_info, self.cmd_ok_button)
+            result = self.gph.rpc.get_config()
+        elif cmd ==  "get_chain_id":
+            self.Bind(wx.EVT_BUTTON, self.cmd_button_on_click_info, self.cmd_ok_button)
+            result = self.gph.rpc.get_chain_id()
+        elif cmd == "get_dynamic_global_properties":
+            self.Bind(wx.EVT_BUTTON, self.cmd_button_on_click_info, self.cmd_ok_button)
+            result = self.gph.rpc.get_dynamic_global_properties()
+        elif cmd == "get_block":
+            self.Bind(wx.EVT_BUTTON, self.cmd_button_on_click_get_block, self.cmd_ok_button)
+        elif cmd == "faucet_register_account":
+            self.Bind(wx.EVT_BUTTON, self.cmd_button_on_click_faucet_register_account, self.cmd_ok_button)
 
         try:
             result = json_dumps(result)
@@ -460,8 +494,8 @@ class WalletFrame(wx.Frame):
         print("text: {}".format(text))
         if is_clear_text:
             self.output_text.Clear()
-        self.output_text.AppendText(text)
-        self.output_text.AppendText('\n')
+        self.output_text.AppendText(text+'\n')
+        # self.output_text.AppendText('\n')
 
     def cmd_button_on_click_unlock(self, event):
         password = self.param1_input_text.GetValue().strip()
@@ -472,6 +506,41 @@ class WalletFrame(wx.Frame):
             text = "钱包解锁成功!"
         except Exception as e:
             text = "钱包解锁失败, {}".format(repr(e))
+        self.show_output_text(text)
+
+    def cmd_button_on_click_get_block(self, event):
+        number = self.param1_input_text.GetValue().strip()
+        try:
+            result = self.gph.rpc.get_block(int(number))
+            text = json_dumps(result)
+        except Exception as e:
+            text = repr(e)
+        self.show_output_text(text)
+
+    def cmd_button_on_click_faucet_register_account(self, event):
+        account_name = self.param1_input_text.GetValue().strip()
+        try:
+            brain_key = self.gph.suggest_key()
+            owner_key = brain_key["owner_key"]
+            brain_key_json = json_dumps(brain_key)
+            print(brain_key_json)
+            req_data = {
+                "account":{
+                    "name": account_name,
+                    "owner_key": owner_key,
+                    "active_key": owner_key,
+                    "id":1
+                }
+            }
+            response = json.loads(requests.post(self.faucet_url, data=json.dumps(req_data), headers=faucet_headers).text)
+            text = {
+                "brain_key": brain_key,
+                "faucet_response": response
+            }
+            # text = '{\n"brain_key": %s, \n"faucet_response": %s\n}' % (brain_key_json, json_dumps(response))
+            text = json_dumps(text)
+        except Exception as e:
+            text = repr(e)
         self.show_output_text(text)
 
     def cmd_button_on_click_lock(self, event):
@@ -507,6 +576,20 @@ class WalletFrame(wx.Frame):
             text = "执行失败, {}".format(repr(e))
         self.show_output_text(text)
 
+    def cmd_button_on_click_get_contract(self, event):
+        name_or_id = self.param1_input_text.GetValue().strip()
+        print("name: {}".format(name_or_id))
+        try:
+            # if len(name_or_id.split(".")) == 3:
+            #     text = self.gph.rpc.get_object(name_or_id)
+            # else:
+            contract = Contract(name_or_id)
+            text = contract.contracts_cache[name_or_id]
+            text = json_dumps(text)
+        except Exception as e:
+            text = "执行失败, {}".format(repr(e))
+        self.show_output_text(text)
+
     def cmd_button_on_click_get_object(self, event):
         object_id = self.param1_input_text.GetValue()
         object_id = object_id.strip()
@@ -531,6 +614,22 @@ class WalletFrame(wx.Frame):
             text = "执行失败, {}".format(repr(e))
         self.show_output_text(text)
 
+    def cmd_button_on_click_tx_by_id(self, event):
+        tx_id = self.param1_input_text.GetValue().strip()
+        try:
+            text = json_dumps(self.gph.rpc.get_transaction_by_id(tx_id))
+        except Exception as e:
+            text = "执行失败, {}".format(repr(e))
+        self.show_output_text(text)
+
+    def cmd_button_on_click_tx_in_block_info(self, event):
+        tx_id = self.param1_input_text.GetValue().strip()
+        try:
+            text = json_dumps(self.gph.rpc.get_transaction_in_block_info(tx_id))
+        except Exception as e:
+            text = "执行失败, {}".format(repr(e))
+        self.show_output_text(text)
+
     def cmd_button_on_click_transfer(self, event):
         from_account = self.param1_input_text.GetValue().strip()
         to_account = self.param2_input_text.GetValue().strip()
@@ -545,12 +644,20 @@ class WalletFrame(wx.Frame):
         self.show_output_text(text)
 
     def cmd_button_on_click_account_history(self, event):
-        account = self.param1_input_text.GetValue().strip()
+        name_or_id = self.param1_input_text.GetValue().strip()
         limit = self.param2_input_text.GetValue().strip()
         start, stop  = "1.11.0", "1.11.0"
-        limit = min(100, int(limit))
+        if limit == "":
+            limit = 5
+        else:
+            limit = min(100, int(limit))
         try:
-            result = self.gph.rpc.get_account_history(account, stop, limit, start)
+            if len(name_or_id.split(".")) == 3:
+                account_object = self.gph.rpc.get_object(name_or_id)
+            else:
+                account = Account(name_or_id)
+                account_object = account.accounts_cache[name_or_id]
+            result = self.gph.rpc.get_account_history(account_object['id'], stop, limit, start, api="history")
             text = json_dumps(result)
         except Exception as e:
             text = "执行失败, {}".format(repr(e))
@@ -563,8 +670,6 @@ class WalletFrame(wx.Frame):
         try:
             result = self.gph.update_collateral_for_gas(beneficiary, int(collateral), from_account)
             text = json_dumps(result)
-            print("############")
-            print(text)
         except Exception as e:
             text = "执行失败, {}".format(repr(e))
         self.show_output_text(text)
@@ -650,6 +755,7 @@ class WalletFrame(wx.Frame):
 
         # 创建根节点和5个子节点并展开
         root = tree.AddRoot('钱包命令', image=0)
+        item_faucet = tree.AppendItem(root, 'faucet', 0)
         item_wallet = tree.AppendItem(root, 'wallet', 0)
         item_chain = tree.AppendItem(root, 'chain', 0)
         item_account = tree.AppendItem(root, 'account', 0)
@@ -661,25 +767,36 @@ class WalletFrame(wx.Frame):
         tree.SelectItem(root)
  
         # tree item
-        for command in wallet_chain_commands:
-            tree.AppendItem(item_chain, command, 1)
+        for cmd in faucet_commands:
+            tree.AppendItem(item_faucet, cmd, 1)
+        tree.Expand(item_faucet)
+
+        for cmd in wallet_chain_commands:
+            tree.AppendItem(item_chain, cmd, 1)
         tree.Expand(item_chain)
 
-        for command in wallet_wallet_commands:
-            tree.AppendItem(item_wallet, command, 1)
+        for cmd in wallet_wallet_commands:
+            tree.AppendItem(item_wallet, cmd, 1)
         tree.Expand(item_wallet)
  
-        for command in wallet_account_commands:
-            tree.AppendItem(item_account, command, 1)
+        for cmd in wallet_account_commands:
+            tree.AppendItem(item_account, cmd, 1)
         tree.Expand(item_account)
 
-        for command in wallet_asset_commands:
-            tree.AppendItem(item_asset, command, 1)
+        for cmd in wallet_asset_commands:
+            tree.AppendItem(item_asset, cmd, 1)
         tree.Expand(item_asset)
 
-        for command in wallet_contract_commands:
-            tree.AppendItem(item_contract, command, 1)
+        for cmd in wallet_contract_commands:
+            tree.AppendItem(item_contract, cmd, 1)
         tree.Expand(item_contract)
+
+        for cmd in wallet_transaction_commands:
+            tree.AppendItem(item_transaction, cmd, 1)
+        tree.Expand(item_transaction)
+
+        for cmd in wallet_file_commands:
+            tree.AppendItem(item_file, cmd, 1)
  
         # 返回树对象
         return tree
@@ -687,16 +804,17 @@ class WalletFrame(wx.Frame):
  
 class App(wx.App):
     def OnInit(self):
-        frame = WalletFrame()  # 创建窗口对象
+        frame = WalletFrame()
         frame.Show()
         return True
  
     def OnExit(self):
-        print("应用程序退出")
         return 0
  
- 
-if __name__ == '__main__':
+def Main():
     app = App()
     app.MainLoop()
+ 
+if __name__ == '__main__':
+    Main()
 

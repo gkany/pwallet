@@ -38,9 +38,9 @@ class DataDir(object):
          Furthermore, it offers an interface to generated backups
          in the `backups/` directory every now and then.
     """
-    appname = "graphene-cocosnewlib1"
-    appauthor = "Fabian Schuh"
-    storageDatabase = "graphene.sqlite"
+    appname = "pWallet"
+    appauthor = "gkany"
+    storageDatabase = "pWallet.sqlite"
 
     data_dir = user_data_dir(appname, appauthor)
     sqlDataBaseFile = os.path.join(data_dir, storageDatabase)
@@ -81,7 +81,7 @@ class DataDir(object):
         log.info("Creating {}...".format(backup_file))
         # Unlock database
         connection.rollback()
-        configStorage["lastBackup"] = datetime.now().strftime(timeformat)
+        self.configStorage["lastBackup"] = datetime.now().strftime(timeformat)
 
     def clean_data(self):
         """ Delete files older than 70 days
@@ -107,24 +107,24 @@ class Key(DataDir):
         (possibly encrypted) private key in the `keys` table in the
         SQLite3 database.
     """
-    tablename = 'keys'
+    table_prefix = 'keys'
 
-    def __init__(self, chain="testnet"):
-        self.tablename = '{}_{}'.format(self.tablename, chain)
-        print(">>>[Key] tablename: {}".format(self.tablename))
+    def __init__(self, current_chain="testnet"):
+        self.current_chain = current_chain
+        self.tablename = '{}_{}'.format(self.table_prefix, self.current_chain)
+        print("[Key][__init__]table name: {}".format(self.tablename))
         super(Key, self).__init__()
 
-    def exists_table(self, chain="testnet"):
+    def exists_table(self):
         """ Check if the database table exists
         """
-        print('----------> [keys] chain: {}'.format(chain))
-        tablename = 'keys_{}'.format(chain)
-        print(">>>[Key][exists_table] tablename: {}, new: {}".format(self.tablename, tablename))
+        # print('----------> [keys] chain: {}'.format(current_chain))
+        # tablename = '{}_{}'.format(self.table_prefix, current_chain)
+        # print(">>>[Key][exists_table] tablename: {}, new: {}".format(self.tablename, tablename))
 
-        if self.tablename != tablename:
-            self.tablename = tablename
-            print(">>>[Key][exists_table] tablename: {}".format(self.tablename))
-
+        # if self.tablename != tablename:
+        #     self.tablename = tablename
+        print(">>>[Key][exists_table] tablename: {}".format(self.tablename))
         query = ("SELECT name FROM sqlite_master " +
                  "WHERE type='table' AND name=?",
                  (self.tablename, ))
@@ -234,7 +234,7 @@ class Configuration(DataDir):
     """ This is the configuration storage that stores key/value
         pairs in the `config` table of the SQLite3 database.
     """
-    tablename = "config"
+    table_prefix = "config"
 
     #: Default configuration
     config_defaults = {
@@ -244,21 +244,22 @@ class Configuration(DataDir):
         "order-expiration": 7 * 24 * 60 * 60,
     }
 
-    def __init__(self, chain="testnet"):
-        self.tablename = '{}_{}'.format(self.tablename, chain)
-        print(">>>[Configuration] tablename: {}".format(self.tablename))
+    def __init__(self, current_chain="testnet"):
+        self.current_chain = current_chain
+        self.tablename = '{}_{}'.format(self.table_prefix, current_chain)
+        print("[Configuration][__init__]table name: {}".format(self.tablename))
         super(Configuration, self).__init__()
 
-    def exists_table(self, chain="testnet"):
+    def exists_table(self):
         """ Check if the database table exists
         """
-        print('----------> [config] chain: {}'.format(chain))
-        tablename = 'config_{}'.format(chain)
-        print("### [Configuration][exists_table] tablename: {}, new: {}".format(self.tablename, tablename))
+        # print('----------> [config] chain: {}'.format(self.tablename))
+        # tablename = '{}_{}'.format(self.table_prefix, current_chain)
+        # print("### [Configuration][exists_table] tablename: {}, new: {}".format(self.tablename, tablename))
 
-        if self.tablename != tablename:
-            self.tablename = tablename
-            print(">>>[Configuration][exists_table] tablename: {}".format(self.tablename))
+        # if self.tablename != tablename:
+        #     self.tablename = tablename
+        print(">>>[Configuration][exists_table] self.tablename: {}".format(self.tablename))
         query = ("SELECT name FROM sqlite_master " +
                  "WHERE type='table' AND name=?",
                  (self.tablename, ))
@@ -284,20 +285,20 @@ class Configuration(DataDir):
     def checkBackup(self):
         """ Backup the SQL database every 7 days
         """
-        if ("lastBackup" not in configStorage or
-                configStorage["lastBackup"] == ""):
-            print("No backup has been created yet!")
-            self.refreshBackup()
-        try:
-            if (
-                datetime.now() -
-                datetime.strptime(configStorage["lastBackup"],
-                                  timeformat)
-            ).days > 7:
-                print("Backups older than 7 days!")
-                self.refreshBackup()
-        except:
-            self.refreshBackup()
+        # if ("lastBackup" not in self.configStorage or
+        #         self.configStorage["lastBackup"] == ""):
+        #     print("No backup has been created yet!")
+        #     self.refreshBackup()
+        # try:
+        #     if (
+        #         datetime.now() -
+        #         datetime.strptime(self.configStorage["lastBackup"],
+        #                           timeformat)
+        #     ).days > 7:
+        #         print("Backups older than 7 days!")
+        #         self.refreshBackup()
+        # except:
+        #     self.refreshBackup()
 
     def _haveKey(self, key):
         """ Is the key `key` available int he configuration?
@@ -403,7 +404,7 @@ class MasterPassword(object):
     #: This key identifies the encrypted master password stored in the confiration
     config_key = "encrypted_master_password"
 
-    def __init__(self, password):
+    def __init__(self, password, current_chain):
         """ The encrypted private keys in `keys` are encrypted with a
             random encrypted masterpassword that is stored in the
             configuration.
@@ -418,7 +419,9 @@ class MasterPassword(object):
             :param str password: Password to use for en-/de-cryption
         """
         self.password = password
-        if self.config_key not in configStorage:
+        self.current_chain = current_chain
+        self.configStorage = Configuration(self.current_chain)
+        if self.config_key not in self.configStorage:
             self.newMaster()
             self.saveEncrytpedMaster()
         else:
@@ -428,7 +431,7 @@ class MasterPassword(object):
         """ Decrypt the encrypted masterpassword
         """
         aes = AESCipher(self.password)
-        checksum, encrypted_master = configStorage[self.config_key].split("$")
+        checksum, encrypted_master = self.configStorage[self.config_key].split("$")
         try:
             decrypted_master = aes.decrypt(encrypted_master)
         except:
@@ -441,14 +444,14 @@ class MasterPassword(object):
         """ Store the encrypted master password in the configuration
             store
         """
-        configStorage[self.config_key] = self.getEncryptedMaster()
+        self.configStorage[self.config_key] = self.getEncryptedMaster()
 
     def newMaster(self):
         """ Generate a new random masterpassword
         """
         # make sure to not overwrite an existing key
-        if (self.config_key in configStorage and
-                configStorage[self.config_key]):
+        if (self.config_key in self.configStorage and
+                self.configStorage[self.config_key]):
             return
         self.decrypted_master = hexlify(os.urandom(32)).decode("ascii")
 
@@ -476,18 +479,18 @@ class MasterPassword(object):
     def purge(self):
         """ Remove the masterpassword from the configuration store
         """
-        configStorage[self.config_key] = ""
+        self.configStorage[self.config_key] = ""
 
 
-# Create keyStorage
-keyStorage = Key()
-configStorage = Configuration()
+# # Create keyStorage
+# keyStorage = Key()
+# self.configStorage = Configuration()
 
-# Create Tables if database is brand new
-if not configStorage.exists_table():
-    configStorage.create_table()
+# # Create Tables if database is brand new
+# if not self.configStorage.exists_table():
+#     self.configStorage.create_table()
 
-newKeyStorage = False
-if not keyStorage.exists_table():
-    newKeyStorage = True
-    keyStorage.create_table()
+# newKeyStorage = False
+# if not keyStorage.exists_table():
+#     newKeyStorage = True
+#     keyStorage.create_table()

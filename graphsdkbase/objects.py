@@ -14,7 +14,7 @@ from .objecttypes import object_type
 from .account import PublicKey
 from .baseobjects import Operation as GPHOperation
 from .operationids import operations
-from graphsdk.storage import configStorage as config
+# from graphsdk.storage import configStorage as config
 # default_prefix = config["default_prefix"]
 
 class ExtensionsData(GrapheneObject):

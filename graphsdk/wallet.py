@@ -5,6 +5,7 @@ from graphsdkbase import bip38
 from graphsdkbase.account import PrivateKey, GPHPrivateKey
 
 from .account import Account
+from .storage import Configuration, Key, MasterPassword
 from .exceptions import (
     InvalidWifError,
     WalletExists,
@@ -53,17 +54,17 @@ class Wallet():
     keys = {}  # struct with pubkey as key and wif as value
     keyMap = {}  # type:wif pairs to force certain keys
 
-    def __init__(self, rpc, *args, **kwargs):
-        from .storage import configStorage
-        # keyStorage = Key()
-        # configStorage = Configuration()
-        self.chain = kwargs.get("chain", "testnet")
-        # print('args: {}, kwargs: {}, self.chain: {}'.format(args, kwargs, self.chain))
+    def __init__(self, rpc, rpc_user, rpc_password, *args, **kwargs):
+        self.current_chain = kwargs.get("current_chain", "testnet")
+        print('[Wallet][__init__]args: {}, kwargs: {}, self.current_chain: {}'.format(args, kwargs, self.current_chain))
+
+        self.keyStorage = Key(current_chain=self.current_chain)
+        self.configStorage = Configuration(current_chain=self.current_chain)
 
         # Create Tables if database is brand new
-        if not configStorage.exists_table(self.chain):
-            configStorage.create_table()
-        self.configStorage = configStorage
+        if not self.configStorage.exists_table():
+            self.configStorage.create_table()
+        # self.configStorage = configStorage
 
         # RPC
         Wallet.rpc = rpc
@@ -85,14 +86,11 @@ class Wallet():
             """ If no keys are provided manually we load the SQLite
                 keyStorage
             """
-            from .storage import (keyStorage, MasterPassword, newKeyStorage)
-            # newKeyStorage = False
-            if not keyStorage.exists_table(self.chain):
-                newKeyStorage = True
-                keyStorage.create_table()
+            if not self.keyStorage.exists_table():
+                self.keyStorage.create_table()
 
-            self.MasterPassword = MasterPassword
-            self.keyStorage = keyStorage
+            self.MasterPassword = MasterPassword(rpc_password, self.current_chain)
+            # self.keyStorage = keyStorage
 
     def setKeys(self, loadkeys):
         """ This method is strictly only for in memory keys that are
@@ -175,7 +173,7 @@ class Wallet():
         """
         if self.created():
             raise WalletExists("You already have created a wallet!")
-        self.masterpwd = self.MasterPassword(pwd)
+        self.masterpwd = MasterPassword(pwd)
         self.masterpassword = self.masterpwd.decrypted_master
 
     def encrypt_wif(self, wif):

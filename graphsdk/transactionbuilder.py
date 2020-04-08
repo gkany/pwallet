@@ -228,14 +228,17 @@ class TransactionBuilder(dict):
         self.clear()
 
         if self.graphene.blocking:
+            print("########### graphene blocking")
             chain = Blockchain(
                 mode=("head" if self.graphene.blocking == "head" else "irreversible"),
                 graphene_instance=self.graphene
             )
             tx = chain.awaitTxConfirmation(tx_id)
-            return tx
-
-        return self
+            # return tx
+            return {tx_id: tx}
+        print("tx_id: {}, tx: {}".format(tx_id, tx))
+        # return self
+        return {tx_id : tx}
 
     def clear(self):
         """ Clear the transaction builder and start from scratch

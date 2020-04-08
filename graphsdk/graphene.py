@@ -15,7 +15,7 @@ from .committee import Committee
 from .vesting import Vesting
 from .worker import Worker
 from .contract import Contract
-from .storage import configStorage as config
+from .storage import Configuration, Key
 from .extensions import extensions as Extensions, getExtensionObjectFromString
 from .exceptions import (
     AccountExistsException,
@@ -139,11 +139,11 @@ class Graphene(object):
         self.bundle = bool(kwargs.get("bundle", False))
         self.blocking = kwargs.get("blocking", False)
 
-        self.chain = kwargs.get("chain", "testnet")
-        print('kwargs: {}, self.chain: {}'.format( kwargs, self.chain))
+        self.current_chain = kwargs.get("current_chain", "testnet")
+        print('[Graphene][__init__]kwargs: {}, current_chain: {}'.format( kwargs, self.current_chain))
 
         # Store config for access through other Classes
-        self.config = config
+        self.config = Configuration(current_chain=self.current_chain)
 
         # print("self.proposer:", self.proposer)
 
@@ -153,7 +153,7 @@ class Graphene(object):
                          rpcpassword=rpcpassword,
                          **kwargs)
 
-        self.wallet = Wallet(self.rpc, **kwargs)
+        self.wallet = Wallet(self.rpc, rpcuser, rpcpassword, **kwargs)
         self.txbuffer = TransactionBuilder(graphene_instance=self)
 
     def connect(self,
@@ -164,16 +164,16 @@ class Graphene(object):
         """ Connect to graphene network (internal use only)
         """
         if not node:
-            if "node" in config:
-                node = config["node"]
+            if "node" in self.config:
+                node = self.config["node"]
             else:
                 raise ValueError("A graphene node needs to be provided!")
 
-        if not rpcuser and "rpcuser" in config:
-            rpcuser = config["rpcuser"]
+        # if not rpcuser and "rpcuser" in self.config:
+        #     rpcuser = self.config["rpcuser"]
 
-        if not rpcpassword and "rpcpassword" in config:
-            rpcpassword = config["rpcpassword"]
+        # if not rpcpassword and "rpcpassword" in self.config:
+        #     rpcpassword = self.config["rpcpassword"]
 
         self.rpc = GrapheneNodeRPC(node, rpcuser, rpcpassword, **kwargs)
 
@@ -272,8 +272,8 @@ class Graphene(object):
         """
         from .memo import Memo
         if not account:
-            if "default_account" in config:
-                account = config["default_account"]
+            if "default_account" in self.config:
+                account = self.config["default_account"]
         if not account:
             raise ValueError("You need to provide an account")
 
@@ -306,8 +306,8 @@ class Graphene(object):
 
     def limit_order_create(self, amount, asset, min_amount, min_amount_asset, fill=False, account=None):
         if not account:
-            if "default_account" in config:
-                account = config["default_account"]
+            if "default_account" in self.config:
+                account = self.config["default_account"]
             else:
                 raise ValueError("You need to provide an account")
         # if not asset:
@@ -342,8 +342,8 @@ class Graphene(object):
             :param str orderNumbers: The Order Object ide of the form ``1.7.xxxx``
         """
         if not account:
-            if "default_account" in config:
-                account = config["default_account"]
+            if "default_account" in self.config:
+                account = self.config["default_account"]
         if not account:
             raise ValueError("You need to provide an account")
         account = Account(account, full=False, graphene_instance=self)
@@ -364,8 +364,8 @@ class Graphene(object):
 
     def call_order_update(self, amount, asset, _amount, _asset, account=None):
         if not account:
-            if "default_account" in config:
-                account = config["default_account"]
+            if "default_account" in self.config:
+                account = self.config["default_account"]
             else:
                 raise ValueError("You need to provide an account")
         # if not asset:
@@ -444,7 +444,7 @@ class Graphene(object):
 
         """
         if not registrar and config["default_account"]:
-            registrar = config["default_account"]
+            registrar = self.config["default_account"]
         if not registrar:
             raise ValueError(
                 "Not registrar account given. Define it with " +
@@ -576,8 +576,8 @@ class Graphene(object):
         if not asset:
             raise ValueError("You need to provide to an asset")
         if not account:
-            if "default_account" in config:
-                account = config["default_account"]
+            if "default_account" in self.config:
+                account = self.config["default_account"]
             else:
                 raise ValueError("You need to provide to an account")
         asset = Asset(asset, graphene_instance=self)["id"]
@@ -603,8 +603,8 @@ class Graphene(object):
         if not restricted_list:
             raise ValueError("You need to provide to restricted account")
         if not account:
-            if "default_account" in config:
-                account = config["default_account"]
+            if "default_account" in self.config:
+                account = self.config["default_account"]
             else:
                 raise ValueError("You need to provide to an account")
         from graphsdkbase.asset_permissions import restricted
@@ -633,8 +633,8 @@ class Graphene(object):
             raise ValueError(
                 "The collateral need to greater than or equal to 0")
         if not account:
-            if "default_account" in config:
-                account = config["default_account"]
+            if "default_account" in self.config:
+                account = self.config["default_account"]
             else:
                 raise ValueError("You need to provide to an mortgager")
         mortgager = Account(account, full=False, graphene_instance=self)
@@ -651,8 +651,8 @@ class Graphene(object):
         if not asset:
             raise ValueError("You need to provide to an asset")
         if not account:
-            if "default_account" in config:
-                account = config["default_account"]
+            if "default_account" in self.config:
+                account = self.config["default_account"]
             else:
                 raise ValueError("You need to provide to an account")
         asset = Asset(asset, graphene_instance=self)["id"]
@@ -680,8 +680,8 @@ class Graphene(object):
         if not asset:
             raise ValueError("You need to provide to an asset")
         if not account:
-            if "default_account" in config:
-                account = config["default_account"]
+            if "default_account" in self.config:
+                account = self.config["default_account"]
             else:
                 raise ValueError("You need to provide to an account")
         assert Asset(
@@ -699,8 +699,8 @@ class Graphene(object):
 
     def asset_issue(self, amount, asset, issue_to_account, memo=["",0], account=None):
         if not account:
-            if "default_account" in config:
-                account = config["default_account"]
+            if "default_account" in self.config:
+                account = self.config["default_account"]
             else:
                 raise ValueError("You need to provide an account")
         account = Account(account, graphene_instance=self)
@@ -735,8 +735,8 @@ class Graphene(object):
         if not (asset or amount):
             raise ValueError("You need to provide asset or amount")
         if not account:
-            if "default_account" in config:
-                account = config["default_account"]
+            if "default_account" in self.config:
+                account = self.config["default_account"]
             else:
                 raise ValueError("You need to provide an account")
         account = Account(account, graphene_instance=self)
@@ -754,8 +754,8 @@ class Graphene(object):
         if not (asset or amount):
             raise ValueError("You need to provide asset or amount")
         if not account:
-            if "default_account" in config:
-                account = config["default_account"]
+            if "default_account" in self.config:
+                account = self.config["default_account"]
             else:
                 raise ValueError("You need to provide an account")
         account = Account(account, graphene_instance=self)
@@ -777,8 +777,8 @@ class Graphene(object):
         if not (asset or amount):
             raise ValueError("You need to provide asset or amount")
         if not account:
-            if "default_account" in config:
-                account = config["default_account"]
+            if "default_account" in self.config:
+                account = self.config["default_account"]
             else:
                 raise ValueError("You need to provide an account")
         account = Account(account, graphene_instance=self)
@@ -798,8 +798,8 @@ class Graphene(object):
         if not (asset_to_settle or settle_price):
             raise ValueError("You need to provide asset or price")
         if not account:
-            if "default_account" in config:
-                account = config["default_account"]
+            if "default_account" in self.config:
+                account = self.config["default_account"]
             else:
                 raise ValueError("You need to provide an account")
         account = Account(account, graphene_instance=self)
@@ -847,8 +847,8 @@ class Graphene(object):
         """
         from copy import deepcopy
         if not account:
-            if "default_account" in config:
-                account = config["default_account"]
+            if "default_account" in self.config:
+                account = self.config["default_account"]
         if not account:
             raise ValueError("You need to provide an account")
 
@@ -909,8 +909,8 @@ class Graphene(object):
                 by signatures to be able to interact
         """
         if not account:
-            if "default_account" in config:
-                account = config["default_account"]
+            if "default_account" in self.config:
+                account = self.config["default_account"]
         if not account:
             raise ValueError("You need to provide an account")
 
@@ -985,8 +985,8 @@ class Graphene(object):
                 to (defaults to ``default_account``)
         """
         if not account:
-            if "default_account" in config:
-                account = config["default_account"]
+            if "default_account" in self.config:
+                account = self.config["default_account"]
         if not account:
             raise ValueError("You need to provide an account")
 
@@ -1012,8 +1012,8 @@ class Graphene(object):
         if not extensionData:
             raise ValueError("You need to provide an extensionData")
         if not account:
-            if "default_account" in config:
-                account = config["default_account"]
+            if "default_account" in self.config:
+                account = self.config["default_account"]
         if not account:
             raise ValueError("You need to provide an account")
         account = Account(account, graphene_instance=self)
@@ -1046,8 +1046,8 @@ class Graphene(object):
         if not itemID:
             raise ValueError("You need to provide itemID ")
         if not account:
-            if "default_account" in config:
-                account = config["default_account"]
+            if "default_account" in self.config:
+                account = self.config["default_account"]
         if not account:
             raise ValueError("You need to provide an account")
         account = Account(account, graphene_instance=self)
@@ -1086,8 +1086,8 @@ class Graphene(object):
         if(not itemVER) and (not itemID):
             raise ValueError("You need to provide a itemVER or itemID ")
         if not account:
-            if "default_account" in config:
-                account = config["default_account"]
+            if "default_account" in self.config:
+                account = self.config["default_account"]
         if not account:
             raise ValueError("You need to provide an account")
         account = Account(account, graphene_instance=self)
@@ -1119,8 +1119,8 @@ class Graphene(object):
                 to (defaults to ``default_account``)
         """
         if not account:
-            if "default_account" in config:
-                account = config["default_account"]
+            if "default_account" in self.config:
+                account = self.config["default_account"]
         if not account:
             raise ValueError("You need to provide an account")
         amount = Amount(vote_amount, vote_asset, graphene_instance=self)
@@ -1157,8 +1157,8 @@ class Graphene(object):
                 to (defaults to ``default_account``)
         """
         if not account:
-            if "default_account" in config:
-                account = config["default_account"]
+            if "default_account" in self.config:
+                account = self.config["default_account"]
         if not account:
             raise ValueError("You need to provide an account")
         amount = Amount(vote_amount, vote_asset, graphene_instance=self)
@@ -1195,8 +1195,8 @@ class Graphene(object):
         if not url:
             raise ValueError("You need to provide a url")
         if not account:
-            if "default_account" in config:
-                account = config["default_account"]
+            if "default_account" in self.config:
+                account = self.config["default_account"]
             else:
                 raise ValueError("You need to provide an account")
         account = Account(account, graphene_instance=self)
@@ -1211,8 +1211,8 @@ class Graphene(object):
         # if not committee_member:
         #     raise ValueError("You need to provide a committee_member")
         if not account:
-            if "default_account" in config:
-                account = config["default_account"]
+            if "default_account" in self.config:
+                account = self.config["default_account"]
             else:
                 raise ValueError("You need to provide an account")
         committee_member = Committee(account, graphene_instance=self)
@@ -1233,8 +1233,8 @@ class Graphene(object):
                 to (defaults to ``default_account``)
         """
         if not account:
-            if "default_account" in config:
-                account = config["default_account"]
+            if "default_account" in self.config:
+                account = self.config["default_account"]
         if not account:
             raise ValueError("You need to provide an account")
         amount = Amount(vote_amount, vote_asset, graphene_instance=self)
@@ -1274,8 +1274,8 @@ class Graphene(object):
                 to (defaults to ``default_account``)
         """
         if not account:
-            if "default_account" in config:
-                account = config["default_account"]
+            if "default_account" in self.config:
+                account = self.config["default_account"]
         if not account:
             raise ValueError("You need to provide an account")
         amount = Amount(vote_amount, vote_asset, graphene_instance=self)
@@ -1316,8 +1316,8 @@ class Graphene(object):
                 to (defaults to ``default_account``)
         """
         if not account:
-            if "default_account" in config:
-                account = config["default_account"]
+            if "default_account" in self.config:
+                account = self.config["default_account"]
         if not account:
             raise ValueError("You need to provide an account")
         amount = Amount(vote_amount, vote_asset, graphene_instance=self)
@@ -1352,8 +1352,8 @@ class Graphene(object):
                 to (defaults to ``default_account``)
         """
         if not account:
-            if "default_account" in config:
-                account = config["default_account"]
+            if "default_account" in self.config:
+                account = self.config["default_account"]
         if not account:
             raise ValueError("You need to provide an account")
         amount = Amount(vote_amount, vote_asset, graphene_instance=self)
@@ -1409,8 +1409,8 @@ class Graphene(object):
         if not period_start_time:
             raise ValueError("You need to provide period start time")
         if not account:
-            if "default_account" in config:
-                account = config["default_account"]
+            if "default_account" in self.config:
+                account = self.config["default_account"]
             else:
                 raise ValueError(
                     "You need to provide an withdraw from account")
@@ -1442,8 +1442,8 @@ class Graphene(object):
         if not period_start_time:
             raise ValueError("You need to provide period start time")
         if not account:
-            if "default_account" in config:
-                account = config["default_account"]
+            if "default_account" in self.config:
+                account = self.config["default_account"]
             else:
                 raise ValueError(
                     "You need to provide an withdraw from account")
@@ -1475,8 +1475,8 @@ class Graphene(object):
         if not (amount or asset):
             raise ValueError("You need to provide asset or amount")
         if not account:
-            if "default_account" in config:
-                account = config["default_account"]
+            if "default_account" in self.config:
+                account = self.config["default_account"]
             else:
                 raise ValueError(
                     "You need to provide an withdraw from account")
@@ -1509,8 +1509,8 @@ class Graphene(object):
         if not authorized_account:
             raise ValueError("You need to provide authorized_account")
         if not account:
-            if "default_account" in config:
-                account = config["default_account"]
+            if "default_account" in self.config:
+                account = self.config["default_account"]
             else:
                 raise ValueError(
                     "You need to provide an withdraw from account")
@@ -1533,8 +1533,8 @@ class Graphene(object):
         if not (amount or asset):
             raise ValueError("You need to provide asset")
         if not account:
-            if "default_account" in config:
-                account = config["default_account"]
+            if "default_account" in self.config:
+                account = self.config["default_account"]
             else:
                 raise ValueError("You need to provide an account")
         account = Account(account, graphene_instance=self)
@@ -1577,8 +1577,8 @@ class Graphene(object):
 
         """
         if not account:
-            if "default_account" in config:
-                account = config["default_account"]
+            if "default_account" in self.config:
+                account = self.config["default_account"]
         if not account:
             raise ValueError("You need to provide an account")
         account = Account(account, graphene_instance=self)
@@ -1613,8 +1613,8 @@ class Graphene(object):
         """
         from .proposal import Proposal
         if not account:
-            if "default_account" in config:
-                account = config["default_account"]
+            if "default_account" in self.config:
+                account = self.config["default_account"]
         if not account:
             raise ValueError("You need to provide an account")
         account = Account(account, graphene_instance=self)
@@ -1662,8 +1662,8 @@ class Graphene(object):
         """
         from .proposal import Proposal
         if not account:
-            if "default_account" in config:
-                account = config["default_account"]
+            if "default_account" in self.config:
+                account = self.config["default_account"]
         if not account:
             raise ValueError("You need to provide an account")
         account = Account(account, graphene_instance=self)
@@ -1725,8 +1725,8 @@ class Graphene(object):
         # settlement_price = Price(settlement_price)
         # assert isinstance(settlement_price, Price), "settlement_price needs to be instance of `graphene.price.Price`!"
         if not account:
-            if "default_account" in config:
-                account = config["default_account"]
+            if "default_account" in self.config:
+                account = self.config["default_account"]
         if not account:
             raise ValueError("You need to provide an account")
         account = Account(account, graphene_instance=self)
@@ -1778,8 +1778,8 @@ class Graphene(object):
                 to (defaults to ``default_account``)
         """
         if not account:
-            if "default_account" in config:
-                account = config["default_account"]
+            if "default_account" in self.config:
+                account = self.config["default_account"]
         if not account:
             raise ValueError("You need to provide an account")
         account = Account(account, graphene_instance=self)
@@ -1833,8 +1833,8 @@ class Graphene(object):
         """
         # assert isinstance(amount, Amount)
         if not account:
-            if "default_account" in config:
-                account = config["default_account"]
+            if "default_account" in self.config:
+                account = self.config["default_account"]
         if not account:
             raise ValueError("You need to provide an account")
         account = Account(account, graphene_instance=self)
@@ -1885,8 +1885,8 @@ class Graphene(object):
         if not begin:
             begin = datetime.utcnow().strftime(timeformat)
         if not account:
-            if "default_account" in config:
-                account = config["default_account"]
+            if "default_account" in self.config:
+                account = self.config["default_account"]
             else:
                 raise ValueError("You need to provide an account")
         account = Account(account, graphene_instance=self)
@@ -1927,8 +1927,8 @@ class Graphene(object):
         if not (amount or asset):
             raise ValueError("You need to provide amount or asset")
         if not account:
-            if "default_account" in config:
-                account = config["default_account"]
+            if "default_account" in self.config:
+                account = self.config["default_account"]
             else:
                 raise ValueError("You need to provide an account")
         account = Account(account, graphene_instance=self)
@@ -1949,8 +1949,8 @@ class Graphene(object):
         if not (amount or asset):
             raise ValueError("You need to provide amount or asset")
         if not account:
-            if "default_account" in config:
-                account = config["default_account"]
+            if "default_account" in self.config:
+                account = self.config["default_account"]
             else:
                 raise ValueError("You need to provide an account")
         account = Account(account, graphene_instance=self)
@@ -1972,8 +1972,8 @@ class Graphene(object):
         if not (debt_amount or debt_asset):
             raise ValueError("You need to provide debt_amount or debt_asset")
         if not account:
-            if "default_account" in config:
-                account = config["default_account"]
+            if "default_account" in self.config:
+                account = self.config["default_account"]
             else:
                 raise ValueError("You need to provide an account")
         account = Account(account, graphene_instance=self)
@@ -1996,8 +1996,8 @@ class Graphene(object):
 
     def create_contract(self, name, data, con_authority, account=None):
         if not account:
-            if "default_account" in config:
-                account = config["default_account"]
+            if "default_account" in self.config:
+                account = self.config["default_account"]
             else:
                 raise ValueError("You need to provide an account")
         account = Account(account, graphene_instance=self)
@@ -2013,8 +2013,8 @@ class Graphene(object):
 
     def call_contract_function(self, contract, function, value_list, account=None):
         if not account:
-            if "default_account" in config:
-                account = config["default_account"]
+            if "default_account" in self.config:
+                account = self.config["default_account"]
             else:
                 raise ValueError("You need to provide an account")
         account = Account(account, graphene_instance=self)
@@ -2036,8 +2036,8 @@ class Graphene(object):
 
     def register_nh_asset_creator(self, account=None):
         if not account:
-            if "default_account" in config:
-                account = config["default_account"]
+            if "default_account" in self.config:
+                account = self.config["default_account"]
             else:
                 raise ValueError("You need to provide an account")
         account = Account(account, graphene_instance=self)
@@ -2049,8 +2049,8 @@ class Graphene(object):
 
     def create_world_view(self, world_view, account=None):
         if not account:
-            if "default_account" in config:
-                account = config["default_account"]
+            if "default_account" in self.config:
+                account = self.config["default_account"]
             else:
                 raise ValueError("You need to provide an account")
         if not world_view:
@@ -2078,8 +2078,8 @@ class Graphene(object):
 
     def relate_world_view(self, world_view, account=None):
         if not account:
-            if "default_account" in config:
-                account = config["default_account"]
+            if "default_account" in self.config:
+                account = self.config["default_account"]
             else:
                 raise ValueError("You need to provide an account")
         if not world_view:
@@ -2112,8 +2112,8 @@ class Graphene(object):
         if not describe:
             raise ValueError("You need to provide an itemData")
         if not account:
-            if "default_account" in config:
-                account = config["default_account"]
+            if "default_account" in self.config:
+                account = self.config["default_account"]
             else:
                 raise ValueError("You need to provide an account")
 
@@ -2144,8 +2144,8 @@ class Graphene(object):
         # if not contract:
         #     contract = None
         if not account:
-            if "default_account" in config:
-                account = config["default_account"]
+            if "default_account" in self.config:
+                account = self.config["default_account"]
             else:
                 raise ValueError("You need to provide account")
         account = Account(account, graphene_instance=self)
@@ -2163,8 +2163,8 @@ class Graphene(object):
 
     def delete_nh_asset(self, asset_id, account=None):
         if not account:
-            if "default_account" in config:
-                account = config["default_account"]
+            if "default_account" in self.config:
+                account = self.config["default_account"]
             else:
                 raise ValueError("You need to provide an account")
         account = Account(account, graphene_instance=self)
@@ -2181,8 +2181,8 @@ class Graphene(object):
         if not nh_asset_id:
             raise ValueError("You need to provide nh asset id")
         if not account:
-            if "default_account" in config:
-                account = config["default_account"]
+            if "default_account" in self.config:
+                account = self.config["default_account"]
             else:
                 raise ValueError("You need to provide an account")
         to_account = Account(to, graphene_instance=self)
@@ -2205,8 +2205,8 @@ class Graphene(object):
         if not price:
             raise ValueError("You need to provide price")
         if not account:
-            if "default_account" in config:
-                account = config["default_account"]
+            if "default_account" in self.config:
+                account = self.config["default_account"]
             else:
                 raise ValueError("You need to provide an account")
         account = Account(account, graphene_instance=self)
@@ -2236,8 +2236,8 @@ class Graphene(object):
         if not order:
             raise ValueError("You need to provide a orderId")
         if not account:
-            if "default_account" in config:
-                account = config["default_account"]
+            if "default_account" in self.config:
+                account = self.config["default_account"]
             else:
                 raise ValueError("You need to provide an account")
         account = Account(account, graphene_instance=self)
@@ -2260,8 +2260,8 @@ class Graphene(object):
         # if not(price_amount) or not(price_asset_id) or not(price_asset_symbol):
         #     raise ValueError("You need to provide price_amount,price_asset_id amd price_asset_symbol")
         if not account:
-            if "default_account" in config:
-                account = config["default_account"]
+            if "default_account" in self.config:
+                account = self.config["default_account"]
             else:
                 raise ValueError("You need to provide an account")
         account = Account(account, graphene_instance=self)
@@ -2291,8 +2291,8 @@ class Graphene(object):
         if not content:
             raise ValueError("You need to provide a file's content")
         if not account:
-            if "default_account" in config:
-                account = config["default_account"]
+            if "default_account" in self.config:
+                account = self.config["default_account"]
             else:
                 raise ValueError("You need to provide an account")
         account = Account(account, graphene_instance=self)
@@ -2310,8 +2310,8 @@ class Graphene(object):
         if not related_account:
             raise ValueError("You need to provide a related account")
         if not account:
-            if "default_account" in config:
-                account = config["default_account"]
+            if "default_account" in self.config:
+                account = self.config["default_account"]
             else:
                 raise ValueError("You need to provide an account")
         relate = []
@@ -2339,8 +2339,8 @@ class Graphene(object):
         if not signature:
             raise ValueError("You need to provide a file's signature content")
         if not account:
-            if "default_account" in config:
-                account = config["default_account"]
+            if "default_account" in self.config:
+                account = self.config["default_account"]
             else:
                 raise ValueError("You need to provide an account")
         account = Account(account, graphene_instance=self)
@@ -2359,8 +2359,8 @@ class Graphene(object):
         if not sub_file:
             raise ValueError("You need to provide a sub file")
         # if not account:
-        #     if "default_account" in config:
-        #         account = config["default_account"]
+        #     if "default_account" in self.config:
+        #         account = self.config["default_account"]
         #     else:
         #         raise ValueError("You need to provide an account")
         # account = Account(account)
@@ -2399,8 +2399,8 @@ class Graphene(object):
         if not data:
             raise ValueError("You need to provide contract data")
         if not account:
-            if "default_account" in config:
-                account = config["default_account"]
+            if "default_account" in self.config:
+                account = self.config["default_account"]
             else:
                 raise ValueError("You need to provide an account")
         account = Account(account, graphene_instance=self)
@@ -2418,8 +2418,8 @@ class Graphene(object):
         if not (crontab_ops or start_time or interval or times):
             raise ValueError("You need to provide some args")
         if not account:
-            if "default_account" in config:
-                account = config["default_account"]
+            if "default_account" in self.config:
+                account = self.config["default_account"]
             else:
                 raise ValueError("You need to provide an account")
         account = Account(account, graphene_instance=self)
@@ -2438,8 +2438,8 @@ class Graphene(object):
         if not task:
             raise ValueError("You need to provide a task")
         if not account:
-            if "default_account" in config:
-                account = config["default_account"]
+            if "default_account" in self.config:
+                account = self.config["default_account"]
             else:
                 raise ValueError("You need to provide an account")
         account = Account(account, graphene_instance=self)
@@ -2457,8 +2457,8 @@ class Graphene(object):
         if not restart_time:
             raise ValueError("You need to provide crontab restart time")
         if not account:
-            if "default_account" in config:
-                account = config["default_account"]
+            if "default_account" in self.config:
+                account = self.config["default_account"]
             else:
                 raise ValueError("You need to provide an account")
         account = Account(account, graphene_instance=self)
