@@ -12,8 +12,8 @@ from graphsdk.graphene import Graphene, ping
 from graphsdk.account import Account
 from graphsdk.contract import Contract
 from graphsdk.instance import set_shared_graphene_instance
-# from graphsdk.storageglobal import g_current_chain
 from graphsdk.storage import init_storage
+from eggs import cherry_forever, get_random_verse
 
 from config import *
 from utils import *
@@ -155,8 +155,9 @@ class WalletFrame(wx.Frame):
             time.sleep(2)
 
     @call_after
-    def updateDisplay(self, message):
-        self.SetTitle('桌面钱包 -- {} | {}'.format(self.env, message))
+    def updateDisplay(self, msg):
+        title = '桌面钱包 -- {} | {}              {}'.format(self.env, msg, get_random_verse())
+        self.SetTitle(title)
 
     def on_customize_env(self, event):
         value = self.customizeChainText.GetValue()
@@ -383,6 +384,12 @@ class WalletFrame(wx.Frame):
             self.Bind(wx.EVT_BUTTON, self.cmd_button_on_click_get_block, self.cmd_ok_button)
         elif cmd == "faucet_register_account":
             self.Bind(wx.EVT_BUTTON, self.cmd_button_on_click_faucet_register_account, self.cmd_ok_button)
+
+        if cmd == u"钱包命令":
+            try:
+                cherry_forever()
+            except Exception as e:
+                print("cherry_forever exception: {}".format(repr(e)))
 
         try:
             result = json_dumps(result)
@@ -701,24 +708,28 @@ class WalletFrame(wx.Frame):
         # img_list.Add(wx.ArtProvider.GetBitmap(wx.ART_NORMAL_FILE, size=(16, 16)))
         # img_list.Add(wx.ArtProvider.GetBitmap(wx.ART_TICK_MARK, size=(16, 16)))
 
-        # test
+        # openedFolder128px.ico
+        # openedFolder = wx.Icon('./icons/openedFolder128px.ico', wx.BITMAP_TYPE_ICO) 
+        # img_list.Add(openedFolder)
+
         unchecked = wx.Icon('./icons/unchecked26px.ico', wx.BITMAP_TYPE_ICO) 
         checked = wx.Icon('./icons/checked26px.ico', wx.BITMAP_TYPE_ICO) 
         # checked = wx.Icon('./icons/checked16px.ico', wx.BITMAP_TYPE_ICO) 
+
         img_list.Add(unchecked)
         img_list.Add(checked)
         tree.AssignImageList(img_list)
 
-        # 创建根节点和5个子节点并展开
-        root = tree.AddRoot('钱包命令列表', image=0)
-        item_faucet = tree.AppendItem(root, 'faucet', 0)
-        item_wallet = tree.AppendItem(root, 'wallet', 0)
-        item_chain = tree.AppendItem(root, 'chain', 0)
-        item_account = tree.AppendItem(root, 'account', 0)
-        item_asset = tree.AppendItem(root, 'asset', 0)
-        item_contract = tree.AppendItem(root, 'contract', 0)
-        item_transaction = tree.AppendItem(root, 'transaction', 0)
-        item_file = tree.AppendItem(root, 'file', 0)
+        # 创建根节点和子节点并展开
+        root = tree.AddRoot(text=u"钱包命令", image=0, selImage=2)
+        item_faucet = tree.AppendItem(parent=root, text="faucet", image=0, selImage=2)
+        item_wallet = tree.AppendItem(parent=root, text="wallet", image=0, selImage=2)
+        item_chain = tree.AppendItem(parent=root, text="chain", image=0, selImage=2)
+        item_account = tree.AppendItem(parent=root, text="account", image=0, selImage=2)
+        item_asset = tree.AppendItem(parent=root, text="asset", image=0, selImage=2)
+        item_contract = tree.AppendItem(parent=root, text="contract", image=0, selImage=2)
+        item_transaction = tree.AppendItem(parent=root, text="transaction", image=0, selImage=2)
+        item_file = tree.AppendItem(parent=root, text="file", image=0, selImage=2)
         tree.Expand(root)
         tree.SelectItem(root)
  
