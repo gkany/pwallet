@@ -696,13 +696,21 @@ class WalletFrame(wx.Frame):
         tree = wx.TreeCtrl(parent)
 
         # 通过wx.ImageList()创建一个图像列表img_list并保存在树中
-        img_list = wx.ImageList(16, 16, True, 2)
+        img_list = wx.ImageList(16, 16, True, 3)
         img_list.Add(wx.ArtProvider.GetBitmap(wx.ART_FOLDER, size=wx.Size(16, 16)))
-        img_list.Add(wx.ArtProvider.GetBitmap(wx.ART_NORMAL_FILE, size=(16, 16)))
+        # img_list.Add(wx.ArtProvider.GetBitmap(wx.ART_NORMAL_FILE, size=(16, 16)))
+        # img_list.Add(wx.ArtProvider.GetBitmap(wx.ART_TICK_MARK, size=(16, 16)))
+
+        # test
+        unchecked = wx.Icon('./icons/unchecked26px.ico', wx.BITMAP_TYPE_ICO) 
+        checked = wx.Icon('./icons/checked26px.ico', wx.BITMAP_TYPE_ICO) 
+        # checked = wx.Icon('./icons/checked16px.ico', wx.BITMAP_TYPE_ICO) 
+        img_list.Add(unchecked)
+        img_list.Add(checked)
         tree.AssignImageList(img_list)
 
         # 创建根节点和5个子节点并展开
-        root = tree.AddRoot('钱包命令', image=0)
+        root = tree.AddRoot('钱包命令列表', image=0)
         item_faucet = tree.AppendItem(root, 'faucet', 0)
         item_wallet = tree.AppendItem(root, 'wallet', 0)
         item_chain = tree.AppendItem(root, 'chain', 0)
@@ -716,35 +724,35 @@ class WalletFrame(wx.Frame):
  
         # tree item
         for cmd in faucet_commands:
-            tree.AppendItem(item_faucet, cmd, 1)
+            tree.AppendItem(parent=item_faucet, text=cmd, image=1, selImage=2)
         tree.Expand(item_faucet)
 
         for cmd in wallet_chain_commands:
-            tree.AppendItem(item_chain, cmd, 1)
+            tree.AppendItem(parent=item_chain, text=cmd, image=1, selImage=2)
         tree.Expand(item_chain)
 
         for cmd in wallet_wallet_commands:
-            tree.AppendItem(item_wallet, cmd, 1)
+            tree.AppendItem(parent=item_wallet, text=cmd, image=1, selImage=2)
         tree.Expand(item_wallet)
  
         for cmd in wallet_account_commands:
-            tree.AppendItem(item_account, cmd, 1)
+            tree.AppendItem(parent=item_account, text=cmd, image=1, selImage=2)
         tree.Expand(item_account)
 
         for cmd in wallet_asset_commands:
-            tree.AppendItem(item_asset, cmd, 1)
+            tree.AppendItem(parent=item_asset, text=cmd, image=1, selImage=2)
         tree.Expand(item_asset)
 
         for cmd in wallet_contract_commands:
-            tree.AppendItem(item_contract, cmd, 1)
+            tree.AppendItem(parent=item_contract, text=cmd, image=1, selImage=2)
         tree.Expand(item_contract)
 
         for cmd in wallet_transaction_commands:
-            tree.AppendItem(item_transaction, cmd, 1)
+            tree.AppendItem(parent=item_transaction, text=cmd, image=1, selImage=2)
         tree.Expand(item_transaction)
 
         for cmd in wallet_file_commands:
-            tree.AppendItem(item_file, cmd, 1)
+            tree.AppendItem(parent=item_file, text=cmd, image=1, selImage=2)
  
         # 返回树对象
         return tree

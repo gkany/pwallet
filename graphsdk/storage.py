@@ -490,9 +490,9 @@ class MasterPassword(object):
 
 def init_storage(current_chain="testnet"):
     global keyStorage, configStorage, newKeyStorage, g_current_chain
-    print("[init_storage] chain: {}".format(g_current_chain))
+    chain_msg = "g_current_chain: {} -->".format(g_current_chain)
     g_current_chain = current_chain
-    print("[init_storage] chain2: {}".format(g_current_chain))
+    print("[init_storage] {} {}, [param] current_chain: {}".format(chain_msg, g_current_chain, current_chain))
     keyStorage = Key()
     configStorage = Configuration()
     # Create Tables if database is brand new
