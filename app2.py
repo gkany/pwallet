@@ -143,15 +143,17 @@ class WalletFrame(wx.Frame):
                     if wallet_status:
                         locked_status = self.gph.wallet.locked()
                         if locked_status:
-                            show_msg = "{} | 钱包已锁定".format(block_msg)
+                            title_msg = "{} | 钱包已锁定".format(block_msg)
                         else:
-                            show_msg = "{} | 钱包已解锁".format(block_msg)
+                            title_msg = "{} | 钱包已解锁".format(block_msg)
                     else:
-                        show_msg = "{} | 钱包未创建".format(block_msg)
+                        title_msg = "{} | 钱包未创建".format(block_msg)
+                else:
+                    title_msg = "节点无法连接"
             except Exception as e:
-                show_msg = repr(e)
-            # print(show_msg)
-            self.updateDisplay(show_msg)
+                title_msg = repr(e)
+            # print(title_msg)
+            self.updateDisplay(title_msg)
             time.sleep(2)
 
     @call_after
