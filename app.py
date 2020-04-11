@@ -15,7 +15,7 @@ from graphsdk.instance import set_shared_graphene_instance
 from graphsdk.storage import init_storage
 from eggs import cherry_forever, get_random_verse
 
-from config3 import *
+from config import *
 from utils import *
 
 def json_dumps(json_data):
