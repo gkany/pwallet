@@ -27,13 +27,16 @@ def call_after(func):
     return _wrapper
 
 class MainFrame(wx.Frame):
+    
+    API_BUTTON_CLICK_EVENT_PREFIX_ = "api_button_on_click_"
+
     def __init__(self, *args, **kwargs):
         super(MainFrame, self).__init__(*args, **kwargs)
         # self.Center()
         # self.titleLock = Lock()
         self.env = env[1] #default testnet
-        self.node_address = node_addresses[self.env]
-        self.faucet_url = faucet_urls[self.env]
+        self.node_address = NODE_ADDRESSES[self.env]
+        self.faucet_url = FAUCET_URLS[self.env]
         self.initGraphene(self.node_address, self.env)
         self.InitUI()
 
@@ -166,7 +169,7 @@ class MainFrame(wx.Frame):
         value = self.customizeChainText.GetValue()
         print("on_customize_env: {}".format(value))
         if value.startswith("ws"):
-            node_addresses[env[2]] = value
+            NODE_ADDRESSES[env[2]] = value
         self.on_env(self.customizeCheck.GetLabel())
 
     def on_testnet_env(self, event):
@@ -177,7 +180,7 @@ class MainFrame(wx.Frame):
 
     def on_env(self, value):
         self.env = value
-        self.node_address = node_addresses[value]
+        self.node_address = NODE_ADDRESSES[value]
         print("on_customize_env: {} {}".format(self.env, self.node_address))
 
         # global g_current_chain
@@ -193,7 +196,7 @@ class MainFrame(wx.Frame):
         self.testnetCheck = wx.RadioButton(chain_staticBox, -1, env[1], style=wx.RB_GROUP) 
         self.mainnetCheck = wx.RadioButton(chain_staticBox, -1, env[0]) 
         self.customizeCheck = wx.RadioButton(chain_staticBox, -1, env[2]) 
-        self.customizeChainText = wx.TextCtrl(chain_staticBox, value=node_addresses[env[2]], size = (180, 20))
+        self.customizeChainText = wx.TextCtrl(chain_staticBox, value=NODE_ADDRESSES[env[2]], size = (180, 20))
 
         self.customizeCheck.Bind(wx.EVT_RADIOBUTTON, self.on_customize_env) 
         self.testnetCheck.Bind(wx.EVT_RADIOBUTTON, self.on_testnet_env) 
@@ -221,26 +224,44 @@ class MainFrame(wx.Frame):
 
         # create api tree
         root = tree.AddRoot(text=u"钱包命令", image=0, selImage=2)
-        for name in API_CLASS:
-            item = tree.AppendItem(parent=root, text=name, image=0, selImage=2)
-            # item_name = "tree_item_" + name
-            # setattr(self, item_name, item)  # remove
-            api_list = globals()[name + "_api"]
-            for api in api_list:
-                tree.AppendItem(parent=item, text=api, image=1, selImage=2)
-            if API_CLASS[name]:
-                tree.Expand(item)
+        for class_name in API_CLASS:
+            api_class_obj = API_CLASS[class_name]
+            if api_class_obj["enable"]:
+                item = tree.AppendItem(parent=root, text=class_name, image=0, selImage=2)
+                item_name = "api_class_item_" + class_name
+                setattr(self, item_name, item)
+        
+        for api_name in API_LIST:
+            api_obj = API_LIST[api_name]
+            if api_obj["enable"]:
+                class_name = api_obj["class"]
+                class_item_name = "api_class_item_" + class_name
+                class_item = getattr(self, class_item_name)
+                tree.AppendItem(parent=class_item, text=api_name, image=1, selImage=2)
+
+                # init api empty param list
+                if len(api_obj["params"]) == 0:
+                    API_EMPTY_PARAM.append(api_name)
+
+        for class_name in API_CLASS:
+            api_class_obj = API_CLASS[class_name]
+            if api_class_obj["enable"]:
+                class_item = getattr(self, "api_class_item_" + class_name)
+                if api_class_obj["isExpand"]:
+                    tree.Expand(class_item)
+
         tree.Expand(root)
         tree.SelectItem(root)
         return tree
 
     def wallet_tree_on_click(self, event):
         self.output_text.Clear()
-        item = event.GetItem()
-        item_str = self.tree.GetItemText(item)
-        print(">>> {}".format(item_str))
-        self.api_label.SetLabel(item_str)
-        result = self.wallet_tree_on_click_impl(item_str)
+        api_item = event.GetItem()
+        item_name = self.tree.GetItemText(api_item).strip()
+        print(">>> api item name: {}".format(item_name))
+        self.api_label.SetLabel(item_name)
+        self.current_api_name = item_name
+        result = self.wallet_tree_on_click_impl(item_name)
         if len(result) > 0:
             self.show_output_text(result)
 
@@ -252,45 +273,64 @@ class MainFrame(wx.Frame):
         boxsizer.Add(param_input_text, proportion=8, flag = wx.EXPAND|wx.ALL, border=3)
         return boxsizer, param_input_text
 
-    def param_columns_layout(self, api):
+    def param_columns_layout(self, api_name):
         # clear param BoxSizer
         self.right_boxsizer.Hide(self.right_param_BoxSizer)
         self.right_boxsizer.Layout()
 
-        if api in API_PARAM_LIST:
-            params_label = API_PARAM_LIST[api]
-            for i in range(0, len(params_label)):
+        if api_name in API_LIST:
+            api_obj = API_LIST[api_name]
+            # print("params: {}".format(api_obj["params"]))
+            params = api_obj["params"]
+            for i in range(0, len(params)):
                 column_text = "param{}_input_text".format(i+1)
-                boxsizer, input_text = self.gen_param_column(self.panel_right, params_label[i])
+                boxsizer, input_text = self.gen_param_column(self.panel_right, params[i])
                 self.right_param_BoxSizer.Add(boxsizer, flag=wx.EXPAND|wx.ALL, border=3)
                 setattr(self, column_text, input_text)
             self.right_boxsizer.Layout()
 
-    def wallet_tree_on_click_impl(self, api_name):
-        api_name = api_name.strip()
-        result = ''
+    def get_sdk_api(self, api_name):
+        try:
+            try:
+                sdk_func = getattr(self.gph, api_name)
+            except Exception as e:
+                api_obj = API_LIST[api_name]
+                # use api_obj["sdk_name"]  by sdk_name_index
+                if api_obj["class"] == "wallet":
+                    sdk_func = getattr(self.gph.wallet, api_name)
+                else:
+                    sdk_func = getattr(self.gph.rpc, api_name)
+        except Exception as e:
+            print("[ERROR]get func failed. api_name:{}. {}".format(api_name, repr(e)))
+            sdk_func = None
+        return sdk_func
 
+    def wallet_tree_on_click_impl(self, api_name):
+        result = ""
         # param column layout
         self.param_columns_layout(api_name)
-
+        
         # Button bind event
-        try:
-            func_name = API_BUTTON_CLICK_EVENT_PREFIX_ + api_name
-            bind_func = getattr(self, func_name)
-            self.Bind(wx.EVT_BUTTON, bind_func, self.api_button_ok)
-
-            if api_name in api_empty_param:
+        if api_name not in API_CLASS:
+            try:
                 try:
-                    sdk_func = getattr(self.gph, api_name)
+                    func_name = self.API_BUTTON_CLICK_EVENT_PREFIX_ + api_name
+                    bind_func = getattr(self, func_name)
                 except Exception as e:
-                    result = repr(e)
-                    if api_name in wallet_api:
-                        sdk_func = getattr(self.gph.wallet, api_name)
-                    else:
-                        sdk_func = getattr(self.gph.rpc, api_name)
-                result = sdk_func()
-        except Exception as e:
-            result = "run {} failed. {}".format(api_name, repr(e))
+                    bind_func = self.api_button_on_click_default
+                    print("[WARN]bind use default. api_name: {}. {}".format(api_name, repr(e)))
+                self.Bind(wx.EVT_BUTTON, bind_func, self.api_button_ok)
+
+                if api_name in API_EMPTY_PARAM:
+                    result = self.get_sdk_api(api_name)() # 不做判断，错误信息抛出
+                    # sdk_func = self.get_sdk_api(api_name)
+                    # if sdk_func:
+                    #     result = sdk_func()
+            except Exception as e:
+                result = "run {} failed. {}".format(api_name, repr(e))
+        else:
+            result = API_CLASS[api_name]["desc"]
+            print("api_name: {}".format(api_name))
 
         if api_name == u"钱包命令":
             try:
@@ -312,6 +352,55 @@ class MainFrame(wx.Frame):
         # self.output_text.AppendText('\n')
 
     # Butten click event
+    # default on click event
+    def api_button_on_click_default(self, event):
+        api_name = self.current_api_name
+        api_obj = API_LIST[api_name]
+        # params = api_obj["params"]
+        args = []  # or {label:arg}
+        size = len(api_obj["params"])
+        for i in range(0, size):
+            arg = "arg{}".format(i)
+            input_text_obj_name = "param{}_input_text".format(i+1)
+            input_text_obj = getattr(self, input_text_obj_name)
+            value = input_text_obj.GetValue().strip()
+            print("input_text_obj_name: {}, value: {}", input_text_obj_name, value)
+            args.append(value)
+
+        sdk_func = self.get_sdk_api(api_name)
+        if sdk_func:
+            try:
+                # sdk api args no support 变长参数
+                if size == 0:
+                    result = sdk_func()
+                elif size == 1:
+                    result = sdk_func(args[0])
+                elif size == 2:
+                    result = sdk_func(args[0], args[1])
+                elif size == 3:
+                    result = sdk_func(args[0], args[1], args[2])
+                elif size == 4:
+                    result = sdk_func(args[0], args[1], args[2], args[3])
+                elif size == 5:
+                    result = sdk_func(args[0], args[1], args[2], args[3], args[4])
+                elif size == 6:
+                    result = sdk_func(args[0], args[1], args[2], args[3], args[4], args[5])
+                elif size == 7:
+                    result = sdk_func(args[0], args[1], args[2], args[3], args[4], args[5], args[6])
+                elif size == 8:
+                    result = sdk_func(args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7])
+                elif size == 9:
+                    result = sdk_func(args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8])
+                else:
+                    text = "{} api has too many args. button on_click default event no support! Please check api."
+                if text is None:
+                    text = "{} {} 执行成功!".format(api_name, args)
+            except Exception as e:
+                text = "{} {} 执行失败, {}".format(api_name, args, repr(e))
+            self.show_output_text(text)
+        else:
+            result = "api_name: {}, sdk no api".format(api_name)
+
     ## faucet 
     def api_button_on_click_faucet_register_account(self, event):
         account_name = self.param1_input_text.GetValue().strip()
