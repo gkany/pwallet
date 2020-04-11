@@ -1,6 +1,7 @@
 #-*- coding: utf-8  -*-
 
 import wx
+import wx.adv
 import time
 import json
 import requests
@@ -9,303 +10,716 @@ from threading import Thread, Lock
 
 from graphsdk.graphene import Graphene, ping
 from graphsdk.account import Account
+from graphsdk.contract import Contract
 from graphsdk.instance import set_shared_graphene_instance
+from graphsdk.storage import init_storage
+from eggs import cherry_forever, get_random_verse
 
-env = [ "prod", "testnet", "customize"]
-nodeAddresses = {
-    env[0]: "wss://api.cocosbcx.net",
-    env[1]: "wss://test.cocosbcx.net", 
-    env[2]: "ws://127.0.0.1:8049"
-}
-
-headers = {"content-type": "application/json"}
+from config3 import *
+from utils import *
 
 def json_dumps(json_data):
     return json.dumps(json_data, indent=4)
-
-def request_post(url, req_data={}):
-    response = json.loads(requests.post(url, data = json.dumps(req_data), headers = headers).text)
-    # print('>> {} {}\n{}\n'.format(req_data['method'], req_data['params'], response))
-    return response
-
-def request_post2(url, method, params=[]):
-    req_data = {
-        "method": method,
-        "params": params,
-        "id":1
-    }
-    response = request_post(url, req_data)
-    if 'error' in response:
-        jsonText = response['error']
-    elif 'result' in response:
-        jsonText = response['result']
-    else:
-        jsonText = response
-    return jsonText
 
 def call_after(func):
     def _wrapper(*args, **kwargs):
         return wx.CallAfter(func, *args, **kwargs)
     return _wrapper
 
-class WalletFrame(wx.Frame):
+class MainFrame(wx.Frame):
+
+    FRAMES_MIN_SIZE = (900, 600)
+    API_BUTTON_CLICK_EVENT_PREFIX_ = "api_button_on_click_"
+
     def __init__(self, *args, **kwargs):
-        super(WalletFrame, self).__init__(*args, **kwargs)
-        # self.Center()
-        self.titleLock = Lock()
+        super(MainFrame, self).__init__(*args, **kwargs)
         self.env = env[1] #default testnet
-        self.nodeAddress = nodeAddresses[self.env]
-        self.initGraphene(self.nodeAddress, self.env)
+        self.node_address = NODE_ADDRESSES[self.env]
+        self.faucet_url = FAUCET_URLS[self.env]
+        self.initGraphene(self.node_address, self.env)
         self.InitUI()
 
-    def initGraphene(self, nodeAddress, chain):
-        print("init graphene: {} {}".format(nodeAddress, chain))
-        if ping(node=nodeAddress, num_retries=1):
-            print("init graphene 2222")
-            self.gph = Graphene(node=nodeAddress, num_retries=1, chain=chain) 
+    def initGraphene(self, node_address, current_chain):
+        print("init graphene: {} {}".format(node_address, current_chain))
+        init_storage(current_chain) # init storage
+        if ping(node=node_address, num_retries=1):
+            self.gph = Graphene(node=node_address, num_retries=1, current_chain=current_chain) 
             set_shared_graphene_instance(self.gph)
         else:
             self.gph = None
-    
+
     def InitUI(self):
+        super().__init__(parent=None, title="pWallet", size=(900, 600))
         self.SetTitle('桌面钱包 -- {}'.format(self.env))
+        self.walletlogo = wx.Icon('./icons/walletlogo.ico', wx.BITMAP_TYPE_ICO)
+        self.SetIcon(self.walletlogo)  
+
+        # self.taskBar_icon = wx.adv.TaskBarIcon()
+        # self.taskBar_icon.SetIcon(self.walletlogo, "pWallet")
+
         self.SetSize(size=(900, 600))
-        panel = wx.Panel(self, -1)
-        mainBox = wx.BoxSizer(wx.VERTICAL)
+        self.Center()
 
-        envBox = wx.BoxSizer()
-        envText = wx.StaticText(panel, label=u'请选择您使用的链: ')
-        self.testnetCheck = wx.RadioButton(panel, -1, env[1], style=wx.RB_GROUP) 
-        self.prodCheck = wx.RadioButton(panel, -1, env[0]) 
-        self.customizeCheck = wx.RadioButton(panel, -1, env[2]) 
-        self.customizeChainText = wx.TextCtrl(panel, value=nodeAddresses[env[2]], size = (180, 20))
+        sp_window = wx.SplitterWindow(parent=self, id=-1)
+        self.panel_left = wx.Panel(parent=sp_window, name="Wallet")
+        self.panel_right = wx.Panel(parent=sp_window, name="Commands")
 
-        self.customizeCheck.Bind(wx.EVT_RADIOBUTTON, self.on_customize_env) 
-        self.testnetCheck.Bind(wx.EVT_RADIOBUTTON, self.on_testnet_env) 
-        self.prodCheck.Bind(wx.EVT_RADIOBUTTON, self.on_prod_env) 
+        # 设置左右布局的分割窗口self.panel_left和self.panel_right
+        sp_window.SplitVertically(self.panel_left, self.panel_right, 300)
+        # 设置最小窗格大小，左右布局指左边窗口大小
+        sp_window.SetMinimumPaneSize(80)
 
-        envBox.Add(envText, proportion = 0,flag = wx.EXPAND|wx.ALL, border = 3)
-        envBox.Add(self.prodCheck, proportion = 0,flag = wx.EXPAND|wx.ALL, border = 3)
-        envBox.Add(self.testnetCheck, proportion = 0,flag = wx.EXPAND|wx.ALL, border = 3)
-        envBox.Add(self.customizeCheck, proportion = 0,flag = wx.EXPAND|wx.ALL, border = 3)
-        envBox.Add(self.customizeChainText, proportion = 0,flag = wx.EXPAND|wx.ALL, border = 3)
-        
-        mainBox.Add(envBox)
+        # 为self.panel_left面板设置一个布局管理器
+        left_boxsizer = wx.BoxSizer(wx.VERTICAL)
+        self.panel_left.SetSizer(left_boxsizer)
 
-        self.inputBox = wx.BoxSizer(wx.HORIZONTAL)
-        paramsText = wx.StaticText(panel, label=u"输入  ")
-        self.textInput = wx.TextCtrl(panel, size = (600, 20))
+        self.chain_boxsizer = self.create_chain_BoxSizer(self.panel_left)
+        self.tree = self.create_TreeCtrl(self.panel_left)
+        self.Bind(wx.EVT_TREE_SEL_CHANGING, self.wallet_tree_on_click, self.tree)
 
-        self.inputBox.Add(paramsText, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
-        self.inputBox.Add(self.textInput, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
-        # self.inputBox.Add(self.clearButton, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
-        mainBox.Add(self.inputBox)
+        left_boxsizer.Add(self.chain_boxsizer, 1, flag=wx.EXPAND | wx.ALL, border=3)
+        left_boxsizer.Add(self.tree, 9, flag=wx.EXPAND | wx.ALL, border=3)
 
-        # wallet
-        self.walletBox = wx.StaticBox(panel, label='wallet')
-        self.createWalletButton = wx.Button(self.walletBox, label = 'create_wallet') 
-        self.unlockButton = wx.Button(self.walletBox, label = 'unlock')
-        self.lockButton = wx.Button(self.walletBox, label = 'lock')
-        self.importKeyButton = wx.Button(self.walletBox, label = 'import_key')
-        self.getAccountsButton = wx.Button(self.walletBox, label = 'getAccounts')
-        self.suggestKeyButton = wx.Button(self.walletBox, label = 'suggest_brain_key')
-        # suggest_key
 
-        self.Bind(wx.EVT_BUTTON, self.on_wallet_create, self.createWalletButton)
-        self.Bind(wx.EVT_BUTTON, self.on_wallet_unlock, self.unlockButton)
-        self.Bind(wx.EVT_BUTTON, self.on_wallet_lock, self.lockButton)
-        self.Bind(wx.EVT_BUTTON, self.on_wallet_importKey, self.importKeyButton)
-        self.Bind(wx.EVT_BUTTON, self.on_wallet_getAccounts, self.getAccountsButton)
-        self.Bind(wx.EVT_BUTTON, self.on_wallet_suggest_key, self.suggestKeyButton)
+        # 为self.panel_right面板设置一个布局管理器
+        # default static_text
+        self.right_boxsizer = wx.BoxSizer(wx.VERTICAL)
+        self.panel_right.SetSizer(self.right_boxsizer)
 
-        walletSBS = wx.StaticBoxSizer(self.walletBox, wx.HORIZONTAL)
-        walletSBS.Add(self.createWalletButton, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
-        walletSBS.Add(self.unlockButton, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
-        walletSBS.Add(self.lockButton, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
-        walletSBS.Add(self.importKeyButton, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
-        walletSBS.Add(self.getAccountsButton, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
-        walletSBS.Add(self.suggestKeyButton, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
-        mainBox.Add(walletSBS)
+        # label and label BoxSizer | 水平
+        self.right_label_BoxSizer = wx.BoxSizer()
+        self.api_label = wx.StaticText(self.panel_right, style=wx.ALIGN_CENTER, label='钱包命令')
+        self.right_label_BoxSizer.Add(self.api_label, proportion=1, flag=wx.EXPAND|wx.ALL|wx.ALIGN_CENTER, border=3)
 
-        self.chainBox = wx.StaticBox(panel, label='chain')
-        self.queryAccountButton = wx.Button(self.chainBox, label = 'get_account')
-        self.objectIDButton = wx.Button(self.chainBox, label = 'get_object')
-        self.balanceButton = wx.Button(self.chainBox, label = 'account_balances')
-        self.infoButton = wx.Button(self.chainBox, label = 'info')
-        self.assetButton = wx.Button(self.chainBox, label = 'get_asset')
-        self.transferButton = wx.Button(self.chainBox, label = 'transfer')
-        self.collateralGasButton = wx.Button(self.chainBox, label = 'collateral_gas')
-        self.clearButton = wx.Button(self.chainBox, label = '清空')
-        
-        self.Bind(wx.EVT_BUTTON, self.on_get_account, self.queryAccountButton)
-        self.Bind(wx.EVT_BUTTON, self.on_get_object, self.objectIDButton)
-        self.Bind(wx.EVT_BUTTON, self.on_list_account_balances, self.balanceButton)
-        self.Bind(wx.EVT_BUTTON, self.on_info, self.infoButton)
-        self.Bind(wx.EVT_BUTTON, self.on_get_asset, self.assetButton)
-        self.Bind(wx.EVT_BUTTON, self.on_wallet_transfer, self.transferButton)
-        self.Bind(wx.EVT_BUTTON, self.on_wallet_collateral_gas, self.collateralGasButton)
-        self.Bind(wx.EVT_BUTTON, self.on_clear, self.clearButton)
+        # param_list and param_list BoxSizer | 垂直
+        self.right_param_BoxSizer = wx.BoxSizer(wx.VERTICAL)
 
-        # operationBox = wx.BoxSizer(wx.HORIZONTAL)
-        operationBox = wx.StaticBoxSizer(self.chainBox, wx.HORIZONTAL)
-        operationBox.Add(self.queryAccountButton, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
-        operationBox.Add(self.objectIDButton, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
-        operationBox.Add(self.balanceButton, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
-        operationBox.Add(self.infoButton, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
-        operationBox.Add(self.assetButton, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
-        operationBox.Add(self.transferButton, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
-        operationBox.Add(self.collateralGasButton, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
-        operationBox.Add(self.clearButton, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 3)
+        # Buttons | 水平
+        self.right_buttons_BoxSizer = wx.BoxSizer(wx.VERTICAL)
+        self.api_button_ok = wx.Button(self.panel_right, label='执行')
+        self.right_buttons_BoxSizer.Add(self.api_button_ok, flag=wx.ALIGN_RIGHT, border=3)
 
-        mainBox.Add(operationBox)
+        # result
+        self.right_output_BoxSizer = wx.BoxSizer()
+        self.output_text = wx.TextCtrl(self.panel_right, size = (1000, 768), style = wx.TE_MULTILINE | wx.HSCROLL)
+        self.right_output_BoxSizer.Add(self.output_text, proportion=0, flag=wx.EXPAND|wx.ALL, border=3)
 
-        self.textShow = wx.TextCtrl(panel, size = (1000, 768), style = wx.TE_MULTILINE | wx.HSCROLL)
-        mainBox.Add(self.textShow, proportion = 0, flag = wx.EXPAND|wx.ALL, border = 1)
+        # layout
+        self.panel_right.SetSizer(self.right_boxsizer)
+        self.right_boxsizer.Add(self.right_label_BoxSizer, flag=wx.EXPAND|wx.ALL, border=3)
+        self.right_boxsizer.Add(self.right_param_BoxSizer, flag=wx.EXPAND|wx.ALL, border=3)
+        self.right_boxsizer.Add(self.right_buttons_BoxSizer, flag=wx.EXPAND|wx.ALL, border=3)
+        self.right_boxsizer.Add(self.right_output_BoxSizer, flag=wx.EXPAND|wx.ALL, border=3)
 
-        panel.SetSizer(mainBox) 
         self._thread = Thread(target = self.run, args = ())
         self._thread.daemon = True
         self._thread.start()
         self.started = True
-
-        self.Show(True)
-
+ 
     def run(self):
         while True:
             try:
                 if self.gph:
                     info = self.gph.info()
                     head_block_number = info['head_block_number']
-                    self.updateDisplay(head_block_number)
+                    block_msg = "区块高度：{}".format(head_block_number)
+
+                    wallet_status = self.gph.wallet.created()
+                    # print("wallet_status: {}".format(wallet_status))
+                    if wallet_status:
+                        locked_status = self.gph.wallet.locked()
+                        if locked_status:
+                            title_msg = "{} | 钱包已锁定".format(block_msg)
+                        else:
+                            title_msg = "{} | 钱包已解锁".format(block_msg)
+                    else:
+                        title_msg = "{} | 钱包未创建".format(block_msg)
+                else:
+                    title_msg = "节点无法连接"
             except Exception as e:
-                print(repr(e))
+                title_msg = repr(e)
+            # print(title_msg)
+            self.updateDisplay(title_msg)
             time.sleep(2)
 
     @call_after
-    def updateDisplay(self, message):
-        self.SetTitle('桌面钱包 -- {} | 区块高度：{}'.format(self.env, message))
+    def updateDisplay(self, msg):
+        title = '桌面钱包 -- {} | {}              {}'.format(self.env, msg, get_random_verse())
+        self.SetTitle(title)
 
+    # current chain set
     def on_customize_env(self, event):
         value = self.customizeChainText.GetValue()
         print("on_customize_env: {}".format(value))
         if value.startswith("ws"):
-            nodeAddresses[env[2]] = value
+            NODE_ADDRESSES[env[2]] = value
         self.on_env(self.customizeCheck.GetLabel())
 
     def on_testnet_env(self, event):
         self.on_env(self.testnetCheck.GetLabel())
 
-    def on_prod_env(self, event):
-        self.on_env(self.prodCheck.GetLabel())
+    def on_mainnet_env(self, event):
+        self.on_env(self.mainnetCheck.GetLabel())
 
     def on_env(self, value):
         self.env = value
-        self.nodeAddress = nodeAddresses[value]
-        print("on_customize_env: {} {}".format(self.env, self.nodeAddress))
-        self.initGraphene(self.nodeAddress, value)
+        self.node_address = NODE_ADDRESSES[value]
+        print("on_customize_env: {} {}".format(self.env, self.node_address))
+
+        # global g_current_chain
+        # g_current_chain = self.env
+        init_storage(self.env) # init storage
+
+        self.initGraphene(self.node_address, value)
         self.SetTitle('桌面钱包 -- {}'.format(value))
 
-    def on_clear(self, event):
-        self.textInput.Clear()
-        self.textShow.Clear()
+    def create_chain_BoxSizer(self, parent):
+        chain_staticBox = wx.StaticBox(parent, label=u'请选择您使用的链: ')
+        chain_boxsizer = wx.StaticBoxSizer(chain_staticBox, wx.VERTICAL)
+        self.testnetCheck = wx.RadioButton(chain_staticBox, -1, env[1], style=wx.RB_GROUP) 
+        self.mainnetCheck = wx.RadioButton(chain_staticBox, -1, env[0]) 
+        self.customizeCheck = wx.RadioButton(chain_staticBox, -1, env[2]) 
+        self.customizeChainText = wx.TextCtrl(chain_staticBox, value=NODE_ADDRESSES[env[2]], size = (180, 20))
 
-    def on_show_text(self, method, params=[], is_clear_text=True):
-        jsonText = request_post2(self.nodeAddress, method, params)
-        self.show_text(json_dumps(jsonText), is_clear_text)
+        self.customizeCheck.Bind(wx.EVT_RADIOBUTTON, self.on_customize_env) 
+        self.testnetCheck.Bind(wx.EVT_RADIOBUTTON, self.on_testnet_env) 
+        self.mainnetCheck.Bind(wx.EVT_RADIOBUTTON, self.on_mainnet_env) 
 
+        chain_boxsizer.Add(self.mainnetCheck, proportion = 0,flag = wx.EXPAND|wx.ALL, border = 3)
+        chain_boxsizer.Add(self.testnetCheck, proportion = 0,flag = wx.EXPAND|wx.ALL, border = 3)
+        chain_boxsizer.Add(self.customizeCheck, proportion = 0,flag = wx.EXPAND|wx.ALL, border = 3)
+        chain_boxsizer.Add(self.customizeChainText, proportion = 0,flag = wx.EXPAND|wx.ALL, border = 3)
+        return chain_boxsizer
 
-    def show_text(self, text, is_clear_text=True):
-        if is_clear_text:
-            self.textShow.Clear()
-        self.textShow.AppendText(text)
-        self.textShow.AppendText('\n')
+    def create_TreeCtrl(self, parent):
+        tree = wx.TreeCtrl(parent)
 
-    def on_get_account(self, event):
-        name = self.textInput.GetValue()
-        if len(name.split(".")) == 3:
-            text = self.gph.rpc.get_object(name)
+        # create image list
+        img_list = wx.ImageList(16, 16, True, 3)
+        img_list.Add(wx.ArtProvider.GetBitmap(wx.ART_FOLDER, size=wx.Size(16, 16)))
+        # img_list.Add(wx.ArtProvider.GetBitmap(wx.ART_NORMAL_FILE, size=(16, 16)))
+        unchecked = wx.Icon('./icons/unchecked26px.ico', wx.BITMAP_TYPE_ICO) 
+        checked = wx.Icon('./icons/checked26px.ico', wx.BITMAP_TYPE_ICO) 
+
+        img_list.Add(unchecked)
+        img_list.Add(checked)
+        tree.AssignImageList(img_list)
+
+        # create api tree
+        root = tree.AddRoot(text=u"钱包命令", image=0, selImage=2)
+        for class_name in API_CLASS:
+            api_class_obj = API_CLASS[class_name]
+            if api_class_obj["enable"]:
+                item = tree.AppendItem(parent=root, text=class_name, image=0, selImage=2)
+                item_name = "api_class_item_" + class_name
+                setattr(self, item_name, item)
+        
+        for api_name in API_LIST:
+            api_obj = API_LIST[api_name]
+            if api_obj["enable"]:
+                class_name = api_obj["class"]
+                class_item_name = "api_class_item_" + class_name
+                class_item = getattr(self, class_item_name)
+                tree.AppendItem(parent=class_item, text=api_name, image=1, selImage=2)
+
+                # init api empty param list
+                if len(api_obj["params"]) == 0:
+                    API_EMPTY_PARAM.append(api_name)
+
+        for class_name in API_CLASS:
+            api_class_obj = API_CLASS[class_name]
+            if api_class_obj["enable"]:
+                class_item = getattr(self, "api_class_item_" + class_name)
+                if api_class_obj["isExpand"]:
+                    tree.Expand(class_item)
+
+        tree.Expand(root)
+        tree.SelectItem(root)
+        return tree
+
+    def wallet_tree_on_click(self, event):
+        self.output_text.Clear()
+        api_item = event.GetItem()
+        item_name = self.tree.GetItemText(api_item).strip()
+        print(">>> api item name: {}".format(item_name))
+        self.api_label.SetLabel(item_name)
+        self.current_api_name = item_name
+        result = self.wallet_tree_on_click_impl(item_name)
+        if len(result) > 0:
+            self.show_output_text(result)
+
+    def gen_param_column(self, parent_panel, label_tip):
+        boxsizer = wx.BoxSizer() # 水平: [label, input]
+        param_label = wx.StaticText(parent_panel, label=label_tip[0])
+        boxsizer.Add(param_label, proportion=2, flag=wx.EXPAND|wx.ALL, border=3)
+        param_input_text = wx.TextCtrl(parent_panel, value=label_tip[1])
+        boxsizer.Add(param_input_text, proportion=8, flag = wx.EXPAND|wx.ALL, border=3)
+        return boxsizer, param_input_text
+
+    def param_columns_layout(self, api_name):
+        # clear param BoxSizer
+        self.right_boxsizer.Hide(self.right_param_BoxSizer)
+        self.right_boxsizer.Layout()
+
+        if api_name in API_LIST:
+            api_obj = API_LIST[api_name]
+            # print("params: {}".format(api_obj["params"]))
+            params = api_obj["params"]
+            for i in range(0, len(params)):
+                column_text = "param{}_input_text".format(i+1)
+                boxsizer, input_text = self.gen_param_column(self.panel_right, params[i])
+                self.right_param_BoxSizer.Add(boxsizer, flag=wx.EXPAND|wx.ALL, border=3)
+                setattr(self, column_text, input_text)
+            self.right_boxsizer.Layout()
+
+    def get_sdk_api(self, api_name):
+        try:
+            try:
+                sdk_func = getattr(self.gph, api_name)
+            except Exception as e:
+                api_obj = API_LIST[api_name]
+                # use api_obj["sdk_name"]  by sdk_name_index
+                if api_obj["class"] == "wallet":
+                    sdk_func = getattr(self.gph.wallet, api_name)
+                else:
+                    sdk_func = getattr(self.gph.rpc, api_name)
+        except Exception as e:
+            print("[ERROR]get func failed. api_name:{}. {}".format(api_name, repr(e)))
+            sdk_func = None
+        return sdk_func
+
+    def wallet_tree_on_click_impl(self, api_name):
+        result = ""
+        # param column layout
+        self.param_columns_layout(api_name)
+        
+        # Button bind event
+        if api_name not in API_CLASS:
+            try:
+                try:
+                    func_name = self.API_BUTTON_CLICK_EVENT_PREFIX_ + api_name
+                    bind_func = getattr(self, func_name)
+                except Exception as e:
+                    bind_func = self.api_button_on_click_default
+                    print("[WARN]bind use default. api_name: {}. {}".format(api_name, repr(e)))
+                self.Bind(wx.EVT_BUTTON, bind_func, self.api_button_ok)
+
+                if api_name in API_EMPTY_PARAM:
+                    result = self.get_sdk_api(api_name)() # 不做判断，错误信息抛出
+                    # sdk_func = self.get_sdk_api(api_name)
+                    # if sdk_func:
+                    #     result = sdk_func()
+            except Exception as e:
+                result = "run {} failed. {}".format(api_name, repr(e))
         else:
-            account = Account(name)
-            text = account.accounts_cache[name]
-        self.show_text(json_dumps(text))
+            result = API_CLASS[api_name]["desc"]
+            print("api_name: {}".format(api_name))
+
+        if api_name == u"钱包命令":
+            try:
+                cherry_forever()
+            except Exception as e:
+                print("cherry_forever exception: {}".format(repr(e)))
+
+        try:
+            result = json_dumps(result)
+        except Exception as e:
+            result = '{} exception. {}'.format(api_name, repr(e))
+        return result
+
+    def show_output_text(self, text, is_clear_text=True):
+        print("text: {}".format(text))
+        if is_clear_text:
+            self.output_text.Clear()
+        self.output_text.AppendText(text+'\n')
+        # self.output_text.AppendText('\n')
+
+    # Butten click event
+    # default on click event
+    def api_button_on_click_default(self, event):
+        api_name = self.current_api_name
+        api_obj = API_LIST[api_name]
+        # params = api_obj["params"]
+        args = []  # or {label:arg}
+        size = len(api_obj["params"])
+        for i in range(0, size):
+            arg = "arg{}".format(i)
+            input_text_obj_name = "param{}_input_text".format(i+1)
+            input_text_obj = getattr(self, input_text_obj_name)
+            value = input_text_obj.GetValue().strip()
+            print("input_text_obj_name: {}, value: {}", input_text_obj_name, value)
+            args.append(value)
+
+        sdk_func = self.get_sdk_api(api_name)
+        if sdk_func:
+            try:
+                # sdk api args no support 变长参数
+                if size == 0:
+                    result = sdk_func()
+                elif size == 1:
+                    result = sdk_func(args[0])
+                elif size == 2:
+                    result = sdk_func(args[0], args[1])
+                elif size == 3:
+                    result = sdk_func(args[0], args[1], args[2])
+                elif size == 4:
+                    result = sdk_func(args[0], args[1], args[2], args[3])
+                elif size == 5:
+                    result = sdk_func(args[0], args[1], args[2], args[3], args[4])
+                elif size == 6:
+                    result = sdk_func(args[0], args[1], args[2], args[3], args[4], args[5])
+                elif size == 7:
+                    result = sdk_func(args[0], args[1], args[2], args[3], args[4], args[5], args[6])
+                elif size == 8:
+                    result = sdk_func(args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7])
+                elif size == 9:
+                    result = sdk_func(args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8])
+                else:
+                    text = "{} api has too many args. button on_click default event no support! Please check api."
+                if text is None:
+                    text = "{} {} 执行成功!".format(api_name, args)
+            except Exception as e:
+                text = "{} {} 执行失败, {}".format(api_name, args, repr(e))
+            self.show_output_text(text)
+        else:
+            result = "api_name: {}, sdk no api".format(api_name)
+
+    ## faucet 
+    def api_button_on_click_faucet_register_account(self, event):
+        account_name = self.param1_input_text.GetValue().strip()
+        try:
+            brain_key = self.gph.suggest_key()
+            owner_key = brain_key["owner_key"]
+            brain_key_json = json_dumps(brain_key)
+            print(brain_key_json)
+            req_data = {
+                "account":{
+                    "name": account_name,
+                    "owner_key": owner_key,
+                    "active_key": owner_key,
+                    "id":1
+                }
+            }
+            response = json.loads(requests.post(self.faucet_url, data=json.dumps(req_data), headers=faucet_headers).text)
+            text = {
+                "brain_key": brain_key,
+                "faucet_response": response
+            }
+            # text = '{\n"brain_key": %s, \n"faucet_response": %s\n}' % (brain_key_json, json_dumps(response))
+            text = json_dumps(text)
+        except Exception as e:
+            text = repr(e)
+        self.show_output_text(text)
+
+    ## wallet
+    def api_button_on_click_new_wallet(self, event):
+        password = self.param1_input_text.GetValue().strip()
+        if len(password) == 0:
+            password = "123456" # default
+        try:
+            self.gph.newWallet(password)
+            text = "钱包创建成功!"
+        except Exception as e:
+            text = "钱包创建失败, {}".format(repr(e))
+        self.show_output_text(text)
+
+    def api_button_on_click_unlock(self, event):
+        password = self.param1_input_text.GetValue().strip()
+        if len(password) == 0:
+            password = "123456" # default
+        try:
+            self.gph.wallet.unlock(password)
+            text = "钱包解锁成功!"
+        except Exception as e:
+            text = "钱包解锁失败, {}".format(repr(e))
+        self.show_output_text(text)
+
+    def api_button_on_click_lock(self, event):
+        try:
+            self.gph.wallet.lock()
+            text = "钱包锁定成功!"
+        except Exception as e:
+            text = "钱包锁定失败, {}".format(repr(e))
+        self.show_output_text(text)
+
+    def api_button_on_click_setpassword(self, event):
+        password = self.param1_input_text.GetValue().strip()
+        if len(password) == 0:
+            password = "123456" # default
+        try:
+            self.gph.wallet.changePassphrase(password)
+            text = "钱包重置密码成功!"
+        except Exception as e:
+            text = "钱包重置密码失败, {}".format(repr(e))
+        self.show_output_text(text)
+
+    def api_button_on_click_import_key(self, event):
+        private_key = self.param1_input_text.GetValue().strip()
+        try:
+            self.gph.wallet.addPrivateKey(private_key)
+            text = "导入私钥成功!"
+        except Exception as e:
+            text = "导入私钥失败, {}".format(repr(e))
+        self.show_output_text(text)
+
+    def api_button_on_click_import_key(self, event):
+        private_key = self.param1_input_text.GetValue().strip()
+        try:
+            self.gph.wallet.addPrivateKey(private_key)
+            text = "导入私钥成功!"
+        except Exception as e:
+            text = "导入私钥失败, {}".format(repr(e))
+        self.show_output_text(text)
+
+    def api_button_on_click_getAccounts(self, event):
+        try:
+            accounts = self.gph.wallet.getAccounts()
+            text = json_dumps(accounts)
+        except Exception as e:
+            text = "执行失败, {}".format(repr(e))
+        self.show_output_text(text)
+
+    def api_button_on_click_suggest_key(self, event):
+        try:
+            text = json_dumps(self.gph.suggest_key())
+        except Exception as e:
+            text = "执行失败, {}".format(repr(e))
+        self.show_output_text(text)
+
+    def api_button_on_click_getPrivateKeyForPublicKey(self, event):
+        public_key = self.param1_input_text.GetValue().strip()
+        try:
+            result = self.gph.wallet.getPrivateKeyForPublicKey(public_key)
+            text = json_dumps(result)
+        except Exception as e:
+            text = "执行失败, {}".format(repr(e))
+        self.show_output_text(text)
+
+    def api_button_on_click_getAccountFromPublicKey(self, event):
+        public_key = self.param1_input_text.GetValue().strip()
+        try:
+            result = self.gph.wallet.getAccountFromPublicKey(public_key)
+            text = json_dumps(result)
+        except Exception as e:
+            text = "执行失败, {}".format(repr(e))
+        self.show_output_text(text)
+
+    ## chain api
+    def api_button_on_click_info(self, event):
+        try:
+            text = json_dumps(self.gph.info())
+        except Exception as e:
+            text = "执行失败, {}".format(repr(e))
+        self.show_output_text(text)
+
+    def api_button_on_click_get_object(self, event):
+        object_id = self.param1_input_text.GetValue()
+        object_id = object_id.strip()
+        print("name: {}".format(object_id))
+        try:
+            if len(object_id.split(".")) == 3:
+                text = self.gph.rpc.get_object(object_id)
+            else:
+                text = 'param({}) error'.format(object_id)
+            text = json_dumps(text)
+        except Exception as e:
+            text = "执行失败, {}".format(repr(e))
+        self.show_output_text(text)
+
+    def api_button_on_click_get_block(self, event):
+        number = self.param1_input_text.GetValue().strip()
+        try:
+            result = self.gph.rpc.get_block(int(number))
+            text = json_dumps(result)
+        except Exception as e:
+            text = repr(e)
+        self.show_output_text(text)
+
+    def api_button_on_click_get_config(self, event):
+        try:
+            text = json_dumps(self.gph.rpc.get_config())
+        except Exception as e:
+            text = "执行失败, {}".format(repr(e))
+        self.show_output_text(text)
+
+    def api_button_on_click_get_chain_id(self, event):
+        try:
+            text = json_dumps(self.gph.rpc.get_chain_id())
+        except Exception as e:
+            text = "执行失败, {}".format(repr(e))
+        self.show_output_text(text)
+
+    def api_button_on_click_get_chain_properties(self, event):
+        try:
+            text = json_dumps(self.gph.rpc.get_chain_properties())
+        except Exception as e:
+            text = "执行失败, {}".format(repr(e))
+        self.show_output_text(text)
+
+    def api_button_on_click_get_global_properties(self, event):
+        try:
+            text = json_dumps(self.gph.rpc.get_global_properties())
+        except Exception as e:
+            text = "执行失败, {}".format(repr(e))
+        self.show_output_text(text)
     
-    def on_get_object(self, event):
-        object_id = self.textInput.GetValue()
-        self.show_text(json_dumps(self.gph.rpc.get_object(object_id)))
+    def api_button_on_click_get_dynamic_global_properties(self, event):
+        try:
+            text = json_dumps(self.gph.rpc.get_dynamic_global_properties())
+        except Exception as e:
+            text = "执行失败, {}".format(repr(e))
+        self.show_output_text(text)
 
-    def on_list_account_balances(self, event):
-        name = self.textInput.GetValue()
-        account = Account(name)
-        text = []
-        for balance in account.balances:
-            text.append({
-                'symbol': balance['symbol'],
-                'amount': balance['amount']
-            })
-        self.show_text(json_dumps(text))
+    ## account api event
+    def api_button_on_click_get_account(self, event):
+        name = self.param1_input_text.GetValue()
+        print("name: {}".format(name))
+        try:
+            if len(name.split(".")) == 3:
+                text = self.gph.rpc.get_object(name)
+            else:
+                # account = Account(name)
+                # text = account.accounts_cache[name]
+                text = self.gph.rpc.get_account_by_name(name)
+            text = json_dumps(text)
+        except Exception as e:
+            text = "执行失败, {}".format(repr(e))
+        self.show_output_text(text)
 
-    def on_get_asset(self, event):
-        asset = self.textInput.GetValue()
-        self.show_text(json_dumps(self.gph.rpc.get_asset(asset)))
+    def api_button_on_click_transfer(self, event):
+        from_account = self.param1_input_text.GetValue().strip()
+        to_account = self.param2_input_text.GetValue().strip()
+        amount = self.param3_input_text.GetValue().strip()
+        asset = self.param4_input_text.GetValue().strip()
+        memo = self.param5_input_text.GetValue().strip()
+        try:
+            result = self.gph.transfer(to_account, amount, asset, [memo, 0], from_account)
+            text = json_dumps(result)
+        except Exception as e:
+            text = "执行失败, {}".format(repr(e))
+        self.show_output_text(text)
 
-    def on_info(self, event):
-        self.show_text(json_dumps(self.gph.info()))
+    def api_button_on_click_create_account(self, event):
+        account_name = self.param1_input_text.GetValue().strip()
+        owner_key = self.param2_input_text.GetValue().strip()
+        active_key = self.param3_input_text.GetValue().strip()
+        memo_key = self.param4_input_text.GetValue().strip()
+        register = self.param5_input_text.GetValue().strip()
+        try:
+            result = self.gph.create_account(account_name=name, registrar=registrar,
+                        owner_key=owner_key, active_key=active_key, memo_key=memo_key)
+            text = json_dumps(result)
+        except Exception as e:
+            text = "执行失败, {}".format(repr(e))
+        self.show_output_text(text)
 
-    def on_wallet_create(self, event):
-        print('>>> on_wallet_create')
-        password = self.textInput.GetValue()
-        if len(password) == 0:
-            password = "123456" # default
-        self.gph.newWallet(password)
+    def api_button_on_click_account_balances(self, event):
+        name = self.param1_input_text.GetValue()
+        print("name: {}".format(name))
+        try:
+            account = Account(name)
+            text = []
+            for balance in account.balances:
+                text.append({
+                    'symbol': balance['symbol'],
+                    'amount': balance['amount']
+                })
+            text = json_dumps(text)
+        except Exception as e:
+            text = "执行失败, {}".format(repr(e))
+        self.show_output_text(text)
 
-    def on_wallet_unlock(self, event):
-        print('>>> on_wallet_unlock')
-        password = self.textInput.GetValue()
-        if len(password) == 0:
-            password = "123456" # default
-        self.gph.wallet.unlock(password)
+    def api_button_on_click_get_account_history(self, event):
+        name_or_id = self.param1_input_text.GetValue().strip()
+        limit = self.param2_input_text.GetValue().strip()
+        start, stop  = "1.11.0", "1.11.0"
+        if limit == "":
+            limit = 5
+        else:
+            limit = min(100, int(limit))
+        try:
+            if len(name_or_id.split(".")) == 3:
+                account_object = self.gph.rpc.get_object(name_or_id)
+            else:
+                account = Account(name_or_id)
+                account_object = account.accounts_cache[name_or_id]
+            result = self.gph.rpc.get_account_history(account_object['id'], stop, limit, start, api="history")
+            text = json_dumps(result)
+        except Exception as e:
+            text = "执行失败, {}".format(repr(e))
+        self.show_output_text(text)
 
-    def on_wallet_lock(self, event):
-        print('>>> on_wallet_lock')
-        self.gph.wallet.lock()
+    def api_button_on_click_update_collateral_for_gas(self, event):
+        from_account = self.param1_input_text.GetValue().strip()
+        beneficiary = self.param2_input_text.GetValue().strip()
+        collateral = self.param3_input_text.GetValue().strip()
+        try:
+            result = self.gph.update_collateral_for_gas(beneficiary, int(collateral), from_account)
+            text = json_dumps(result)
+        except Exception as e:
+            text = "执行失败, {}".format(repr(e))
+        self.show_output_text(text)
 
-    def on_wallet_importKey(self, event):
-        print('>>> on_wallet_importKey')
-        wif = self.textInput.GetValue()
-        if len(wif) != 0:
-            self.gph.wallet.addPrivateKey(wif)
+    ## asset
+    def api_button_on_click_get_asset(self, event):
+        asset_symbol_or_id = self.param1_input_text.GetValue().strip()
+        # asset_symbol_or_id = self.params_input[0].GetValue().strip()
+        print("name: {}".format(asset_symbol_or_id))
+        try:
+            text = json_dumps(self.gph.rpc.get_asset(asset_symbol_or_id))
+        except Exception as e:
+            text = "执行失败, {}".format(repr(e))
+        self.show_output_text(text)
+    
+    ## contract api
+    def api_button_on_click_get_contract(self, event):
+        name_or_id = self.param1_input_text.GetValue().strip()
+        print("name: {}".format(name_or_id))
+        try:
+            # if len(name_or_id.split(".")) == 3:
+            #     text = self.gph.rpc.get_object(name_or_id)
+            # else:
+            contract = Contract(name_or_id)
+            text = contract.contracts_cache[name_or_id]
+            text = json_dumps(text)
+        except Exception as e:
+            text = "执行失败, {}".format(repr(e))
+        self.show_output_text(text)
 
-    def on_wallet_getAccounts(self, event):
-        accounts = self.gph.wallet.getAccounts()
-        print(accounts)
-        self.show_text(json_dumps(accounts))
+    ## transaction
+    '''
+    def api_button_on_click_get_transaction_by_id(self, event):
+        tx_id = self.param1_input_text.GetValue().strip()
+        try:
+            text = json_dumps(self.gph.rpc.get_transaction_by_id(tx_id))
+        except Exception as e:
+            text = "执行失败, {}".format(repr(e))
+        self.show_output_text(text)
 
-    def on_wallet_suggest_key(self, event):
-        self.show_text(json_dumps(self.gph.suggest_key()))
+    def api_button_on_click_get_transaction_in_block_info(self, event):
+        tx_id = self.param1_input_text.GetValue().strip()
+        try:
+            text = json_dumps(self.gph.rpc.get_transaction_in_block_info(tx_id))
+        except Exception as e:
+            text = "执行失败, {}".format(repr(e))
+        self.show_output_text(text)
+    '''
 
-    # transfer(self, to, amount, asset, memo=["", 0], account=None):
-    def on_wallet_transfer(self, event):
-        params = self.textInput.GetValue()
-        tokens = params.split(',')
-        print(">>> transfer {}".format(str(tokens)))
-        # result = self.gph.transfer(tokens[1].strip(), tokens[2].strip(), tokens[3].strip(), [tokens[4].strip(), int(tokens[5].strip())], tokens[0].strip())
-        result = self.gph.transfer(tokens[1].strip(), tokens[2].strip(), tokens[3].strip(), [tokens[4].strip(), 0], tokens[0].strip())
-        self.show_text(json_dumps(result))
-
-    # update_collateral_for_gas(self, beneficiary, collateral, account=None):
-    def on_wallet_collateral_gas(self, event):
-        params = self.textInput.GetValue()
-        tokens = params.split(',')
-        print(">>> update_collateral_for_gas {}".format(str(tokens)))
-        # result = self.gph.transfer(tokens[1].strip(), tokens[2].strip(), tokens[3].strip(), [tokens[4].strip(), int(tokens[5].strip())], tokens[0].strip())
-        result = self.gph.update_collateral_for_gas(tokens[1].strip(), int(tokens[2].strip()), tokens[0].strip())
-        self.show_text(json_dumps(result))
-
+    ## file
+ 
+class App(wx.App):
+    def OnInit(self):
+        frame = MainFrame()
+        frame.Show()
+        return True
+ 
+    def OnExit(self):
+        return 0
+ 
 def Main():
-    app = wx.App()
-    WalletFrame(None)
+    app = App()
     app.MainLoop()
-
-if __name__ == "__main__":
+ 
+if __name__ == '__main__':
     Main()
 
