@@ -1,20 +1,35 @@
-#-*- coding: utf-8  -*-
+# 最小长度5，最大长度63，
+# 可以.分隔，分隔的每一部分要求以小写字母开头，以数字或小写字母结尾; 每一部分的中间部分可以为：小写字母、数字、-; 每一部分的长度5~63
+MIN_ACCOUNT_NAME_LENGTH = 5
+MAX_ACCOUNT_NAME_LENGTH = 63
+lower_alpha = 'abcdefghijklmnopqrstuvwxyz'
+def is_lower_alpha(ch):
+    if lower_alpha.find(ch) == -1:
+        return False
+    return True
 
-import json
-import requests
+def is_valid_name(name):
+    length = len(name)
+    if length < MIN_ACCOUNT_NAME_LENGTH or length > MAX_ACCOUNT_NAME_LENGTH:
+        return False
 
-local_rpc_url = "http://192.168.192.148:8049"
-node_rpc_url = "http://test.cocosbcx.net"
-headers = {"content-type": "application/json"}
-
-def request_post(url, req_data={}):
-    response = json.loads(requests.post(url, data = json.dumps(req_data), headers = headers).text)
-    print('>> {} {}\n{}\n'.format(req_data['method'], req_data['params'], response))
-    return json_dumps(response['result'])
-
-def json_dumps(json_data):
-    return json.dumps(json_data, indent=4)
-
-'''
-curl http://test.cocosbcx.net -d '{"jsonrpc": "2.0", "method": "get_dynamic_global_properties", "params": [], "id": 1}'
-'''
+    begin = 0
+    while True:
+        end = name.find('.', begin)
+        if end == -1:
+            end = length
+        if end - begin < MIN_ACCOUNT_NAME_LENGTH:
+            return False
+        
+        if not is_lower_alpha(name[begin]):
+            return False
+        if not (is_lower_alpha(name[end-1]) or name[end-1].isdigit()):
+            return False
+        for index in range(begin+1, end-1):
+            ch = name[index]
+            if not (is_lower_alpha(ch) or ch.isdigit() or ch == '-'):
+                return False
+        if end == length:
+            break
+        begin = end + 1
+    return True
