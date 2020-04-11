@@ -39,6 +39,50 @@ class MainFrame(wx.Frame):
         self.initGraphene(self.node_address, self.env)
         self.InitUI()
 
+        self._status_bar = self.CreateStatusBar()
+
+        # Bind extra events
+        self.Bind(wx.EVT_CLOSE, self._on_close)
+
+    def _on_close(self, event):
+        """Event handler for the wx.EVT_CLOSE event.
+
+        This method is used when the user tries to close the program
+        to save the options and make sure that the download & update
+        processes are not running.
+
+        """
+
+        confirm_exit = True
+        # if self.opt_manager.options["confirm_exit"]:
+        if confirm_exit:
+            dlg = wx.MessageDialog(self, "Are you sure you want to exit?", "Exit", wx.YES_NO | wx.ICON_QUESTION)
+
+            result = dlg.ShowModal() == wx.ID_YES
+            dlg.Destroy()
+        else:
+            result = True
+
+        if result:
+            self.close()
+
+    def close(self):
+        # Store main-options frame size
+        # self.opt_manager.options['main_win_size'] = self.GetSize()
+        # self.opt_manager.options['opts_win_size'] = self._options_frame.GetSize()
+
+        # self.opt_manager.options["save_path_dirs"] = self._path_combobox.GetStrings()
+
+        # self._options_frame.save_all_options()
+        # self.opt_manager.save_to_file()
+
+        self.Destroy()
+
+    def _status_bar_write(self, msg):
+        """Display msg in the status bar. """
+        self._status_bar.SetStatusText(msg)
+
+
     def initGraphene(self, node_address, current_chain):
         print("init graphene: {} {}".format(node_address, current_chain))
         init_storage(current_chain) # init storage
@@ -140,6 +184,7 @@ class MainFrame(wx.Frame):
                 title_msg = repr(e)
             # print(title_msg)
             self.updateDisplay(title_msg)
+            self._status_bar_write(get_random_verse())
             time.sleep(2)
 
     @call_after
@@ -328,7 +373,7 @@ class MainFrame(wx.Frame):
         return result
 
     def show_output_text(self, text, is_clear_text=True):
-        print("text: {}".format(text))
+        # print("text: {}".format(text))
         if is_clear_text:
             self.output_text.Clear()
         self.output_text.AppendText(text+'\n')
