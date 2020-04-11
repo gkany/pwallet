@@ -496,8 +496,10 @@ API_LIST = {
         "name": "get_transaction_by_id",
         "class": "transaction",
         "params": [
-            "transaction ID",
-            ""
+            [
+                "transaction ID",
+                ""
+            ]
         ],
         "enable": True,
         "sdk_name": [],
@@ -507,8 +509,10 @@ API_LIST = {
         "name": "get_transaction_in_block_info",
         "class": "transaction",
         "params": [
-            "transaction ID",
-            ""
+            [
+                "transaction ID",
+                ""
+            ]
         ],
         "enable": True,
         "sdk_name": [],

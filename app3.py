@@ -27,13 +27,10 @@ def call_after(func):
     return _wrapper
 
 class MainFrame(wx.Frame):
-    
     API_BUTTON_CLICK_EVENT_PREFIX_ = "api_button_on_click_"
 
     def __init__(self, *args, **kwargs):
         super(MainFrame, self).__init__(*args, **kwargs)
-        # self.Center()
-        # self.titleLock = Lock()
         self.env = env[1] #default testnet
         self.node_address = NODE_ADDRESSES[self.env]
         self.faucet_url = FAUCET_URLS[self.env]
@@ -42,11 +39,8 @@ class MainFrame(wx.Frame):
 
     def initGraphene(self, node_address, current_chain):
         print("init graphene: {} {}".format(node_address, current_chain))
-        # global g_current_chain
-        # g_current_chain = current_chain
         init_storage(current_chain) # init storage
         if ping(node=node_address, num_retries=1):
-            print("init graphene 2222")
             self.gph = Graphene(node=node_address, num_retries=1, current_chain=current_chain) 
             set_shared_graphene_instance(self.gph)
         else:
@@ -63,7 +57,6 @@ class MainFrame(wx.Frame):
 
         self.SetSize(size=(900, 600))
         self.Center()
-
 
         sp_window = wx.SplitterWindow(parent=self, id=-1)
         self.panel_left = wx.Panel(parent=sp_window, name="Wallet")
@@ -91,14 +84,6 @@ class MainFrame(wx.Frame):
         self.right_boxsizer = wx.BoxSizer(wx.VERTICAL)
         self.panel_right.SetSizer(self.right_boxsizer)
 
-        # self.right_staticText_BoxSizer = wx.BoxSizer()
-        # self.right_static_text = wx.StaticText(self.panel_right, 2, label='Commands')
-        # self.right_staticText_BoxSizer.Add(self.right_static_text, 1, flag=wx.EXPAND | wx.ALL, border=3)
-
-        # self.right_boxsizer.Add(self.right_staticText_BoxSizer, proportion=1, flag=wx.EXPAND | wx.ALL, border=3)
-        # self.right_boxsizer.Add(self.right_label_BoxSizer, proportion=1, flag=wx.EXPAND|wx.ALL, border=3)
-
-        ##### test start
         # label and label BoxSizer | 水平
         self.right_label_BoxSizer = wx.BoxSizer()
         self.api_label = wx.StaticText(self.panel_right, style=wx.ALIGN_CENTER, label='钱包命令')
@@ -123,10 +108,6 @@ class MainFrame(wx.Frame):
         self.right_boxsizer.Add(self.right_param_BoxSizer, flag=wx.EXPAND|wx.ALL, border=3)
         self.right_boxsizer.Add(self.right_buttons_BoxSizer, flag=wx.EXPAND|wx.ALL, border=3)
         self.right_boxsizer.Add(self.right_output_BoxSizer, flag=wx.EXPAND|wx.ALL, border=3)
-
-        # self.right_boxsizer.Hide(self.right_staticText_BoxSizer)
-        # self.right_boxsizer.Layout()
-        ##### test end
 
         self._thread = Thread(target = self.run, args = ())
         self._thread.daemon = True
@@ -703,8 +684,8 @@ class MainFrame(wx.Frame):
             text = "执行失败, {}".format(repr(e))
         self.show_output_text(text)
 
-
     ## transaction
+    '''
     def api_button_on_click_get_transaction_by_id(self, event):
         tx_id = self.param1_input_text.GetValue().strip()
         try:
@@ -720,9 +701,9 @@ class MainFrame(wx.Frame):
         except Exception as e:
             text = "执行失败, {}".format(repr(e))
         self.show_output_text(text)
-
+    '''
+    
     ## file
- 
  
 class App(wx.App):
     def OnInit(self):
