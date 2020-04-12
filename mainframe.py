@@ -15,7 +15,7 @@ from graphsdk.instance import set_shared_graphene_instance
 from graphsdk.storage import init_storage
 from eggs import cherry_forever, get_random_verse
 
-from config import *
+from config3 import *
 from utils import *
 
 def json_dumps(json_data):
@@ -38,50 +38,6 @@ class MainFrame(wx.Frame):
         self.faucet_url = FAUCET_URLS[self.env]
         self.initGraphene(self.node_address, self.env)
         self.InitUI()
-
-        self._status_bar = self.CreateStatusBar()
-
-        # Bind extra events
-        self.Bind(wx.EVT_CLOSE, self._on_close)
-
-    def _on_close(self, event):
-        """Event handler for the wx.EVT_CLOSE event.
-
-        This method is used when the user tries to close the program
-        to save the options and make sure that the download & update
-        processes are not running.
-
-        """
-
-        confirm_exit = True
-        # if self.opt_manager.options["confirm_exit"]:
-        if confirm_exit:
-            dlg = wx.MessageDialog(self, "Are you sure you want to exit?", "Exit", wx.YES_NO | wx.ICON_QUESTION)
-
-            result = dlg.ShowModal() == wx.ID_YES
-            dlg.Destroy()
-        else:
-            result = True
-
-        if result:
-            self.close()
-
-    def close(self):
-        # Store main-options frame size
-        # self.opt_manager.options['main_win_size'] = self.GetSize()
-        # self.opt_manager.options['opts_win_size'] = self._options_frame.GetSize()
-
-        # self.opt_manager.options["save_path_dirs"] = self._path_combobox.GetStrings()
-
-        # self._options_frame.save_all_options()
-        # self.opt_manager.save_to_file()
-
-        self.Destroy()
-
-    def _status_bar_write(self, msg):
-        """Display msg in the status bar. """
-        self._status_bar.SetStatusText(msg)
-
 
     def initGraphene(self, node_address, current_chain):
         print("init graphene: {} {}".format(node_address, current_chain))
@@ -145,7 +101,7 @@ class MainFrame(wx.Frame):
 
         # result
         self.right_output_BoxSizer = wx.BoxSizer()
-        self.output_text = wx.TextCtrl(self.panel_right, size = (1000, 768), style = wx.TE_MULTILINE | wx.HSCROLL | wx.TE_RICH | wx.TE_PROCESS_ENTER)
+        self.output_text = wx.TextCtrl(self.panel_right, size = (1000, 768), style = wx.TE_MULTILINE | wx.HSCROLL)
         self.right_output_BoxSizer.Add(self.output_text, proportion=0, flag=wx.EXPAND|wx.ALL, border=3)
 
         # layout
@@ -184,13 +140,11 @@ class MainFrame(wx.Frame):
                 title_msg = repr(e)
             # print(title_msg)
             self.updateDisplay(title_msg)
-            self._status_bar_write(get_random_verse())
             time.sleep(2)
 
     @call_after
     def updateDisplay(self, msg):
-        # title = '桌面钱包 -- {} | {}              {}'.format(self.env, msg, get_random_verse())
-        title = '桌面钱包 -- {} | {}'.format(self.env, msg)
+        title = '桌面钱包 -- {} | {}              {}'.format(self.env, msg, get_random_verse())
         self.SetTitle(title)
 
     # current chain set
@@ -374,7 +328,7 @@ class MainFrame(wx.Frame):
         return result
 
     def show_output_text(self, text, is_clear_text=True):
-        # print("text: {}".format(text))
+        print("text: {}".format(text))
         if is_clear_text:
             self.output_text.Clear()
         self.output_text.AppendText(text+'\n')
@@ -762,10 +716,10 @@ class App(wx.App):
     def OnExit(self):
         return 0
  
-def Main():
-    app = App()
-    app.MainLoop()
+# def Main():
+#     app = App()
+#     app.MainLoop()
  
-if __name__ == '__main__':
-    Main()
+# if __name__ == '__main__':
+#     Main()
 

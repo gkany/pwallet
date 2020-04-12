@@ -123,7 +123,7 @@ def get_random_verse(verses=verses_list):
 
 def cherry_forever():
     while True: 
-        title = get_random_verse()
+        title = "彩蛋 | " + get_random_verse()
         cherry_draw(title)
         time.sleep(2)
         T.clearscreen()
