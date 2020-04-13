@@ -33,13 +33,14 @@ class MainFrame(wx.Frame):
 
     def __init__(self, *args, **kwargs):
         super(MainFrame, self).__init__(*args, **kwargs)
+
         #default testnet
         self.current_chain = TESTNET_CHAIN 
-        self.faucet_url = FAUCET_URLS[self.current_chain]
+        self.faucet_url = FAUCET_CONFIG[self.current_chain] + FAUCET_ROUTE
         self.init_sdk()
         self.layout_mainframe()
 
-        self._status_bar = self.CreateStatusBar()
+        self.status_bar = self.CreateStatusBar()
         # Bind extra events
         self.Bind(wx.EVT_CLOSE, self._on_close)
 
@@ -79,7 +80,7 @@ class MainFrame(wx.Frame):
 
     def status_bar_write(self, msg):
         """Display msg in the status bar. """
-        self._status_bar.SetStatusText(msg)
+        self.status_bar.SetStatusText(msg)
 
     def title_write(self, title="桌面钱包"):
         self.SetTitle(title)
@@ -120,6 +121,7 @@ class MainFrame(wx.Frame):
         self.panel_left.SetSizer(left_boxsizer)
 
         self.chain_boxsizer = self.create_chain_BoxSizer(self.panel_left)
+        # self.chain_boxsizer = self.create_chain_BoxSizer_by_radioBox(self.panel_left)
         self.tree = self.create_TreeCtrl(self.panel_left)
         self.Bind(wx.EVT_TREE_SEL_CHANGING, self.wallet_tree_on_click, self.tree)
 
@@ -147,7 +149,7 @@ class MainFrame(wx.Frame):
 
         # result
         self.right_output_BoxSizer = wx.BoxSizer()
-        self.output_text = wx.TextCtrl(self.panel_right, size = (1000, 768), style = wx.TE_MULTILINE | wx.HSCROLL | wx.TE_RICH | wx.TE_PROCESS_ENTER)
+        self.output_text = wx.TextCtrl(self.panel_right, size=(1000, 768), style=wx.TE_MULTILINE|wx.HSCROLL|wx.TE_RICH|wx.TE_PROCESS_ENTER)
         self.right_output_BoxSizer.Add(self.output_text, proportion=0, flag=wx.EXPAND|wx.ALL, border=3)
 
         # layout
@@ -196,28 +198,34 @@ class MainFrame(wx.Frame):
         self.SetTitle(title)
 
     # current chain set
-    def on_customize_env(self, event):
-        address = self.customizeChainText.GetValue().strip()
-        if not address.startswith("ws"):
-            self.status_bar_write("链切换失败，websocket address format error. {}".format(address))
-            return
-        CHIAN_CONFIG[CUSTOMIZE_CHAIN]["address"] = address
-        self.current_chain = CUSTOMIZE_CHAIN
-        self.change_chain()
+    def on_customize_chain(self, event):
+        self.change_chain(chain_name=CUSTOMIZE_CHAIN)
 
-    def on_testnet_env(self, event):
-        # self.change_chain(self.testnetCheck.GetLabel())
-        self.current_chain = TESTNET_CHAIN
-        self.change_chain()
+    def on_testnet_chain(self, event):
+        self.change_chain(chain_name=TESTNET_CHAIN)
 
-    def on_mainnet_env(self, event):
-        self.current_chain = MAINNET_CHAIN
-        self.change_chain()
+    def on_mainnet_chain(self, event):
+        self.change_chain(chain_name=MAINNET_CHAIN)
 
-    def change_chain(self):
-        init_storage(self.current_chain) # init storage
+    def change_chain(self, chain_name):
+        print("change_chain event: {}-->{}".format(self.current_chain, chain_name))
+        if chain_name == CUSTOMIZE_CHAIN:
+            addresses = self.customizeChainText.GetValue().strip()
+            tokens = addresses.split(",")
+            if len(tokens) >= 1:
+                chain_address = tokens[0]
+                if chain_address.startswith("ws"):
+                    CHIAN_CONFIG[CUSTOMIZE_CHAIN]["address"] = chain_address
+                
+                if len(tokens) >= 2:
+                    faucet_url = tokens[1]
+                    if faucet_url.startswith("http"):
+                        FAUCET_CONFIG[CUSTOMIZE_CHAIN] = faucet_url
+        self.current_chain = chain_name
+        self.faucet_url = FAUCET_CONFIG[chain_name] + FAUCET_ROUTE
+        init_storage(chain_name) # init storage
         self.init_sdk()
-        self.title_write('桌面钱包 -- {}'.format(self.current_chain))
+        self.title_write('桌面钱包 -- {}'.format(chain_name))
 
     def create_chain_BoxSizer(self, parent):
         chain_staticBox = wx.StaticBox(parent, label=u'请选择您使用的链: ')
@@ -225,17 +233,20 @@ class MainFrame(wx.Frame):
         self.testnetCheck = wx.RadioButton(chain_staticBox, -1, TESTNET_CHAIN, style=wx.RB_GROUP) 
         self.mainnetCheck = wx.RadioButton(chain_staticBox, -1, MAINNET_CHAIN) 
         self.customizeCheck = wx.RadioButton(chain_staticBox, -1, CUSTOMIZE_CHAIN) 
-        self.customizeChainText = wx.TextCtrl(chain_staticBox, value=CHIAN_CONFIG[CUSTOMIZE_CHAIN]["address"], size = (180, 20))
 
-        self.customizeCheck.Bind(wx.EVT_RADIOBUTTON, self.on_customize_env) 
-        self.testnetCheck.Bind(wx.EVT_RADIOBUTTON, self.on_testnet_env) 
-        self.mainnetCheck.Bind(wx.EVT_RADIOBUTTON, self.on_mainnet_env) 
+        default = "{},{}".format(CHIAN_CONFIG[CUSTOMIZE_CHAIN]["address"], FAUCET_CONFIG[CUSTOMIZE_CHAIN])
+        self.customizeChainText = wx.TextCtrl(chain_staticBox, value=default, size=(180, 20))
 
-        chain_boxsizer.Add(self.mainnetCheck, proportion = 0,flag = wx.EXPAND|wx.ALL, border = 3)
-        chain_boxsizer.Add(self.testnetCheck, proportion = 0,flag = wx.EXPAND|wx.ALL, border = 3)
-        chain_boxsizer.Add(self.customizeCheck, proportion = 0,flag = wx.EXPAND|wx.ALL, border = 3)
-        chain_boxsizer.Add(self.customizeChainText, proportion = 0,flag = wx.EXPAND|wx.ALL, border = 3)
+        self.customizeCheck.Bind(wx.EVT_RADIOBUTTON, self.on_customize_chain) 
+        self.testnetCheck.Bind(wx.EVT_RADIOBUTTON, self.on_testnet_chain) 
+        self.mainnetCheck.Bind(wx.EVT_RADIOBUTTON, self.on_mainnet_chain) 
+
+        chain_boxsizer.Add(self.mainnetCheck, proportion=0, flag=wx.EXPAND|wx.ALL, border=3)
+        chain_boxsizer.Add(self.testnetCheck, proportion=0, flag=wx.EXPAND|wx.ALL, border=3)
+        chain_boxsizer.Add(self.customizeCheck, proportion=0,flag=wx.EXPAND|wx.ALL, border=3)
+        chain_boxsizer.Add(self.customizeChainText, proportion=0,flag=wx.EXPAND|wx.ALL, border=3)
         return chain_boxsizer
+
 
     def create_TreeCtrl(self, parent):
         tree = wx.TreeCtrl(parent)
@@ -299,7 +310,7 @@ class MainFrame(wx.Frame):
         param_label = wx.StaticText(parent_panel, label=label_tip[0])
         boxsizer.Add(param_label, proportion=2, flag=wx.EXPAND|wx.ALL, border=3)
         param_input_text = wx.TextCtrl(parent_panel, value=label_tip[1])
-        boxsizer.Add(param_input_text, proportion=8, flag = wx.EXPAND|wx.ALL, border=3)
+        boxsizer.Add(param_input_text, proportion=8, flag=wx.EXPAND|wx.ALL, border=3)
         return boxsizer, param_input_text
 
     def param_columns_layout(self, api_name):

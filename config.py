@@ -17,14 +17,15 @@ CHIAN_CONFIG = {
     CUSTOMIZE_CHAIN: {
         "name": CUSTOMIZE_CHAIN,
         "zh": "自定义",
-        "address":"wss://127.0.0.1:8049"
+        "address":"ws://127.0.0.1:8049"
     },
 }
 
-FAUCET_URLS = {
-    MAINNET_CHAIN: "https://api-faucet.cocosbcx.net/api/v1/accounts",
-    TESTNET_CHAIN: "https://test-faucet.cocosbcx.net/api/v1/accounts", 
-    CUSTOMIZE_CHAIN: "http://127.0.0.1:8041/api/v1/accounts"
+FAUCET_ROUTE = "/api/v1/accounts"
+FAUCET_CONFIG = {
+    MAINNET_CHAIN: "https://api-faucet.cocosbcx.net",
+    TESTNET_CHAIN: "https://test-faucet.cocosbcx.net", 
+    CUSTOMIZE_CHAIN: "http://127.0.0.1:8041"
 }
 
 headers = {"content-type": "application/json"}
