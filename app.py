@@ -33,14 +33,13 @@ class MainFrame(wx.Frame):
 
     def __init__(self, *args, **kwargs):
         super(MainFrame, self).__init__(*args, **kwargs)
-        self.env = env[1] #default testnet
-        self.node_address = NODE_ADDRESSES[self.env]
-        self.faucet_url = FAUCET_URLS[self.env]
-        self.initGraphene(self.node_address, self.env)
-        self.InitUI()
+        #default testnet
+        self.current_chain = TESTNET_CHAIN 
+        self.faucet_url = FAUCET_URLS[self.current_chain]
+        self.init_sdk()
+        self.layout_mainframe()
 
         self._status_bar = self.CreateStatusBar()
-
         # Bind extra events
         self.Bind(wx.EVT_CLOSE, self._on_close)
 
@@ -78,23 +77,26 @@ class MainFrame(wx.Frame):
 
         self.Destroy()
 
-    def _status_bar_write(self, msg):
+    def status_bar_write(self, msg):
         """Display msg in the status bar. """
         self._status_bar.SetStatusText(msg)
 
+    def title_write(self, title="桌面钱包"):
+        self.SetTitle(title)
 
-    def initGraphene(self, node_address, current_chain):
-        print("init graphene: {} {}".format(node_address, current_chain))
-        init_storage(current_chain) # init storage
-        if ping(node=node_address, num_retries=1):
-            self.gph = Graphene(node=node_address, num_retries=1, current_chain=current_chain) 
+    def init_sdk(self):
+        chain = CHIAN_CONFIG[self.current_chain]
+        print("init sdk. current chain: {}".format(chain))
+        init_storage(self.current_chain) # init storage
+        if ping(node=chain["address"], num_retries=1):
+            self.gph = Graphene(node=chain["address"], num_retries=1, current_chain=self.current_chain) 
             set_shared_graphene_instance(self.gph)
         else:
             self.gph = None
 
-    def InitUI(self):
+    def layout_mainframe(self):
         super().__init__(parent=None, title="pWallet", size=(900, 600))
-        self.SetTitle('桌面钱包 -- {}'.format(self.env))
+        self.title_write('桌面钱包 -- {}'.format(self.current_chain))
         self.walletlogo = wx.Icon('./icons/walletlogo.ico', wx.BITMAP_TYPE_ICO)
         self.SetIcon(self.walletlogo)  
 
@@ -184,48 +186,46 @@ class MainFrame(wx.Frame):
                 title_msg = repr(e)
             # print(title_msg)
             self.updateDisplay(title_msg)
-            self._status_bar_write(get_random_verse())
+            self.status_bar_write(get_random_verse())
             time.sleep(2)
 
     @call_after
     def updateDisplay(self, msg):
-        # title = '桌面钱包 -- {} | {}              {}'.format(self.env, msg, get_random_verse())
-        title = '桌面钱包 -- {} | {}'.format(self.env, msg)
+        # title = '桌面钱包 -- {} | {}              {}'.format(self.current_chain, msg, get_random_verse())
+        title = '桌面钱包 -- {} | {}'.format(self.current_chain, msg)
         self.SetTitle(title)
 
     # current chain set
     def on_customize_env(self, event):
-        value = self.customizeChainText.GetValue()
-        print("on_customize_env: {}".format(value))
-        if value.startswith("ws"):
-            NODE_ADDRESSES[env[2]] = value
-        self.on_env(self.customizeCheck.GetLabel())
+        address = self.customizeChainText.GetValue().strip()
+        if not address.startswith("ws"):
+            self.status_bar_write("链切换失败，websocket address format error. {}".format(address))
+            return
+        CHIAN_CONFIG[CUSTOMIZE_CHAIN]["address"] = address
+        self.current_chain = CUSTOMIZE_CHAIN
+        self.change_chain()
 
     def on_testnet_env(self, event):
-        self.on_env(self.testnetCheck.GetLabel())
+        # self.change_chain(self.testnetCheck.GetLabel())
+        self.current_chain = TESTNET_CHAIN
+        self.change_chain()
 
     def on_mainnet_env(self, event):
-        self.on_env(self.mainnetCheck.GetLabel())
+        self.current_chain = MAINNET_CHAIN
+        self.change_chain()
 
-    def on_env(self, value):
-        self.env = value
-        self.node_address = NODE_ADDRESSES[value]
-        print("on_customize_env: {} {}".format(self.env, self.node_address))
-
-        # global g_current_chain
-        # g_current_chain = self.env
-        init_storage(self.env) # init storage
-
-        self.initGraphene(self.node_address, value)
-        self.SetTitle('桌面钱包 -- {}'.format(value))
+    def change_chain(self):
+        init_storage(self.current_chain) # init storage
+        self.init_sdk()
+        self.title_write('桌面钱包 -- {}'.format(self.current_chain))
 
     def create_chain_BoxSizer(self, parent):
         chain_staticBox = wx.StaticBox(parent, label=u'请选择您使用的链: ')
         chain_boxsizer = wx.StaticBoxSizer(chain_staticBox, wx.VERTICAL)
-        self.testnetCheck = wx.RadioButton(chain_staticBox, -1, env[1], style=wx.RB_GROUP) 
-        self.mainnetCheck = wx.RadioButton(chain_staticBox, -1, env[0]) 
-        self.customizeCheck = wx.RadioButton(chain_staticBox, -1, env[2]) 
-        self.customizeChainText = wx.TextCtrl(chain_staticBox, value=NODE_ADDRESSES[env[2]], size = (180, 20))
+        self.testnetCheck = wx.RadioButton(chain_staticBox, -1, TESTNET_CHAIN, style=wx.RB_GROUP) 
+        self.mainnetCheck = wx.RadioButton(chain_staticBox, -1, MAINNET_CHAIN) 
+        self.customizeCheck = wx.RadioButton(chain_staticBox, -1, CUSTOMIZE_CHAIN) 
+        self.customizeChainText = wx.TextCtrl(chain_staticBox, value=CHIAN_CONFIG[CUSTOMIZE_CHAIN]["address"], size = (180, 20))
 
         self.customizeCheck.Bind(wx.EVT_RADIOBUTTON, self.on_customize_env) 
         self.testnetCheck.Bind(wx.EVT_RADIOBUTTON, self.on_testnet_env) 

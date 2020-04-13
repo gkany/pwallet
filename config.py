@@ -1,14 +1,30 @@
-env = ["mainnet", "testnet", "customize"]
-NODE_ADDRESSES = {
-    env[0]: "wss://api.cocosbcx.net",
-    env[1]: "wss://test.cocosbcx.net", 
-    env[2]: "ws://127.0.0.1:8049"
+
+MAINNET_CHAIN = "mainnet"
+TESTNET_CHAIN = "testnet"
+CUSTOMIZE_CHAIN = "customize"
+
+CHIAN_CONFIG = {
+    MAINNET_CHAIN: {
+        "name": MAINNET_CHAIN,
+        "zh": "主网",
+        "address":"wss://api.cocosbcx.net"
+    },
+    TESTNET_CHAIN: {
+        "name": TESTNET_CHAIN,
+        "zh": "测试网",
+        "address":"wss://test.cocosbcx.net"
+    },
+    CUSTOMIZE_CHAIN: {
+        "name": CUSTOMIZE_CHAIN,
+        "zh": "自定义",
+        "address":"wss://127.0.0.1:8049"
+    },
 }
 
 FAUCET_URLS = {
-    env[0]: "https://api-faucet.cocosbcx.net/api/v1/accounts",
-    env[1]: "https://test-faucet.cocosbcx.net/api/v1/accounts", 
-    env[2]: "http://127.0.0.1:8041/api/v1/accounts"
+    MAINNET_CHAIN: "https://api-faucet.cocosbcx.net/api/v1/accounts",
+    TESTNET_CHAIN: "https://test-faucet.cocosbcx.net/api/v1/accounts", 
+    CUSTOMIZE_CHAIN: "http://127.0.0.1:8041/api/v1/accounts"
 }
 
 headers = {"content-type": "application/json"}
