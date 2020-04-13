@@ -17,6 +17,8 @@ from eggs import cherry_forever, get_random_verse
 
 from config import *
 from utils import *
+from logmanager import LogManager
+
 
 def json_dumps(json_data):
     return json.dumps(json_data, indent=4)
@@ -25,6 +27,8 @@ def call_after(func):
     def _wrapper(*args, **kwargs):
         return wx.CallAfter(func, *args, **kwargs)
     return _wrapper
+
+log_manager = LogManager(config_path="./", add_time=True)
 
 class MainFrame(wx.Frame):
 
@@ -87,7 +91,7 @@ class MainFrame(wx.Frame):
 
     def init_sdk(self):
         chain = CHIAN_CONFIG[self.current_chain]
-        print("init sdk. current chain: {}".format(chain))
+        log_manager.log("init sdk. current chain: {}".format(chain))
         init_storage(self.current_chain) # init storage
         if ping(node=chain["address"], num_retries=1):
             self.gph = Graphene(node=chain["address"], num_retries=1, current_chain=self.current_chain) 
@@ -173,7 +177,7 @@ class MainFrame(wx.Frame):
                     block_msg = "区块高度：{}".format(head_block_number)
 
                     wallet_status = self.gph.wallet.created()
-                    # print("wallet_status: {}".format(wallet_status))
+                    # log_manager.log("wallet_status: {}".format(wallet_status))
                     if wallet_status:
                         locked_status = self.gph.wallet.locked()
                         if locked_status:
@@ -186,7 +190,7 @@ class MainFrame(wx.Frame):
                     title_msg = "节点无法连接"
             except Exception as e:
                 title_msg = repr(e)
-            # print(title_msg)
+            # log_manager.log(title_msg)
             self.updateDisplay(title_msg)
             self.status_bar_write(get_random_verse())
             time.sleep(2)
@@ -208,7 +212,7 @@ class MainFrame(wx.Frame):
         self.change_chain(chain_name=MAINNET_CHAIN)
 
     def change_chain(self, chain_name):
-        print("change_chain event: {}-->{}".format(self.current_chain, chain_name))
+        log_manager.log("change_chain event: {}-->{}".format(self.current_chain, chain_name))
         if chain_name == CUSTOMIZE_CHAIN:
             addresses = self.customizeChainText.GetValue().strip()
             tokens = addresses.split(",")
@@ -298,7 +302,7 @@ class MainFrame(wx.Frame):
         self.output_text.Clear()
         api_item = event.GetItem()
         item_name = self.tree.GetItemText(api_item).strip()
-        print(">>> api item name: {}".format(item_name))
+        log_manager.log(">>> api item name: {}".format(item_name))
         self.api_label.SetLabel(item_name)
         self.current_api_name = item_name
         result = self.wallet_tree_on_click_impl(item_name)
@@ -320,7 +324,7 @@ class MainFrame(wx.Frame):
 
         if api_name in API_LIST:
             api_obj = API_LIST[api_name]
-            # print("params: {}".format(api_obj["params"]))
+            # log_manager.log("params: {}".format(api_obj["params"]))
             params = api_obj["params"]
             for i in range(0, len(params)):
                 column_text = "param{}_input_text".format(i+1)
@@ -341,7 +345,7 @@ class MainFrame(wx.Frame):
                 else:
                     sdk_func = getattr(self.gph.rpc, api_name)
         except Exception as e:
-            print("[ERROR]get func failed. api_name:{}. {}".format(api_name, repr(e)))
+            log_manager.log("[ERROR]get func failed. api_name:{}. {}".format(api_name, repr(e)))
             sdk_func = None
         return sdk_func
 
@@ -358,7 +362,7 @@ class MainFrame(wx.Frame):
                     bind_func = getattr(self, func_name)
                 except Exception as e:
                     bind_func = self.api_button_on_click_default
-                    print("[WARN]bind use default. api_name: {}. {}".format(api_name, repr(e)))
+                    log_manager.log("[WARN]bind use default. api_name: {}. {}".format(api_name, repr(e)))
                 self.Bind(wx.EVT_BUTTON, bind_func, self.api_button_ok)
 
                 if api_name in API_EMPTY_PARAM:
@@ -370,13 +374,13 @@ class MainFrame(wx.Frame):
                 result = "run {} failed. {}".format(api_name, repr(e))
         else:
             result = API_CLASS[api_name]["desc"]
-            print("api_name: {}".format(api_name))
+            log_manager.log("api_name: {}".format(api_name))
 
         if api_name == u"钱包命令":
             try:
                 cherry_forever()
             except Exception as e:
-                print("cherry_forever exception: {}".format(repr(e)))
+                log_manager.log("cherry_forever exception: {}".format(repr(e)))
 
         try:
             result = json_dumps(result)
@@ -385,7 +389,7 @@ class MainFrame(wx.Frame):
         return result
 
     def show_output_text(self, text, is_clear_text=True):
-        # print("text: {}".format(text))
+        # log_manager.log("text: {}".format(text))
         if is_clear_text:
             self.output_text.Clear()
         self.output_text.AppendText(text+'\n')
@@ -404,7 +408,7 @@ class MainFrame(wx.Frame):
             input_text_obj_name = "param{}_input_text".format(i+1)
             input_text_obj = getattr(self, input_text_obj_name)
             value = input_text_obj.GetValue().strip()
-            print("input_text_obj_name: {}, value: {}", input_text_obj_name, value)
+            log_manager.log("input_text_obj_name: {}, value: {}", input_text_obj_name, value)
             args.append(value)
 
         sdk_func = self.get_sdk_api(api_name)
@@ -448,7 +452,7 @@ class MainFrame(wx.Frame):
             brain_key = self.gph.suggest_key()
             owner_key = brain_key["owner_key"]
             brain_key_json = json_dumps(brain_key)
-            print(brain_key_json)
+            log_manager.log(brain_key_json)
             req_data = {
                 "account":{
                     "name": account_name,
@@ -572,7 +576,7 @@ class MainFrame(wx.Frame):
     def api_button_on_click_get_object(self, event):
         object_id = self.param1_input_text.GetValue()
         object_id = object_id.strip()
-        print("name: {}".format(object_id))
+        log_manager.log("name: {}".format(object_id))
         try:
             if len(object_id.split(".")) == 3:
                 text = self.gph.rpc.get_object(object_id)
@@ -630,7 +634,7 @@ class MainFrame(wx.Frame):
     ## account api event
     def api_button_on_click_get_account(self, event):
         name = self.param1_input_text.GetValue()
-        print("name: {}".format(name))
+        log_manager.log("name: {}".format(name))
         try:
             if len(name.split(".")) == 3:
                 text = self.gph.rpc.get_object(name)
@@ -672,7 +676,7 @@ class MainFrame(wx.Frame):
 
     def api_button_on_click_account_balances(self, event):
         name = self.param1_input_text.GetValue()
-        print("name: {}".format(name))
+        log_manager.log("name: {}".format(name))
         try:
             account = Account(name)
             text = []
@@ -721,7 +725,7 @@ class MainFrame(wx.Frame):
     def api_button_on_click_get_asset(self, event):
         asset_symbol_or_id = self.param1_input_text.GetValue().strip()
         # asset_symbol_or_id = self.params_input[0].GetValue().strip()
-        print("name: {}".format(asset_symbol_or_id))
+        log_manager.log("name: {}".format(asset_symbol_or_id))
         try:
             text = json_dumps(self.gph.rpc.get_asset(asset_symbol_or_id))
         except Exception as e:
@@ -731,7 +735,7 @@ class MainFrame(wx.Frame):
     ## contract api
     def api_button_on_click_get_contract(self, event):
         name_or_id = self.param1_input_text.GetValue().strip()
-        print("name: {}".format(name_or_id))
+        log_manager.log("name: {}".format(name_or_id))
         try:
             # if len(name_or_id.split(".")) == 3:
             #     text = self.gph.rpc.get_object(name_or_id)

@@ -1,4 +1,5 @@
 *.log
+log
 __pycache__/
 .vscode/
 tests/
