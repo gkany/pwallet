@@ -1,3 +1,4 @@
+APP_CONFIRM_EXIT = False
 
 MAINNET_CHAIN = "mainnet"
 TESTNET_CHAIN = "testnet"

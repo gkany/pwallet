@@ -31,8 +31,7 @@ def call_after(func):
 
 log_manager = LogManager(config_path="./", add_time=True)
 
-# def absolute_path(path):
-#     return path.replace("~", )
+
 class MainFrame(wx.Frame):
 
     FRAMES_MIN_SIZE = (900, 600)
@@ -41,29 +40,11 @@ class MainFrame(wx.Frame):
     def __init__(self, *args, **kwargs):
         super(MainFrame, self).__init__(*args, **kwargs)
 
-        bitmap_data = (
-            ("logo", "walletlogo.ico"),
-            ("checked", "checked26px.ico"),
-            ("unchecked", "unchecked24px.ico")
-        )
-        self._pixmaps_path = os.path.join(os.getcwd(), "icons")
-        log_manager.log("[info] icon path: {}".format(self._pixmaps_path))
-        self._bitmaps = {}
-        for item in bitmap_data:
-            target, name = item
-            log_manager.log("[info] bitmap: {}".format(item))
-            # self._bitmaps[target] = wx.Bitmap(os.path.join(self._pixmaps_path, name))
-            self._bitmaps[target] = wx.Icon(os.path.join(self._pixmaps_path, name), wx.BITMAP_TYPE_ICO)
-
         #default testnet
         self.current_chain = TESTNET_CHAIN 
         self.faucet_url = FAUCET_CONFIG[self.current_chain] + FAUCET_ROUTE
         self.init_sdk()
         self.layout_mainframe()
-
-        self.status_bar = self.CreateStatusBar()
-        # Bind extra events
-        self.Bind(wx.EVT_CLOSE, self._on_close)
 
     def _on_close(self, event):
         """Event handler for the wx.EVT_CLOSE event.
@@ -74,9 +55,7 @@ class MainFrame(wx.Frame):
 
         """
 
-        confirm_exit = True
-        # if self.opt_manager.options["confirm_exit"]:
-        if confirm_exit:
+        if APP_CONFIRM_EXIT:
             dlg = wx.MessageDialog(self, "Are you sure you want to exit?", "Exit", wx.YES_NO | wx.ICON_QUESTION)
 
             result = dlg.ShowModal() == wx.ID_YES
@@ -88,15 +67,6 @@ class MainFrame(wx.Frame):
             self.close()
 
     def close(self):
-        # Store main-options frame size
-        # self.opt_manager.options['main_win_size'] = self.GetSize()
-        # self.opt_manager.options['opts_win_size'] = self._options_frame.GetSize()
-
-        # self.opt_manager.options["save_path_dirs"] = self._path_combobox.GetStrings()
-
-        # self._options_frame.save_all_options()
-        # self.opt_manager.save_to_file()
-
         self.Destroy()
 
     def status_bar_write(self, msg):
@@ -119,8 +89,14 @@ class MainFrame(wx.Frame):
     def layout_mainframe(self):
         super().__init__(parent=None, title="pWallet", size=(900, 600))
         self.title_write('桌面钱包 -- {}'.format(self.current_chain))
-        self.walletlogo = wx.Icon('./icons/walletlogo.ico', wx.BITMAP_TYPE_ICO)
-        self.SetIcon(self.walletlogo)  
+        # self.walletlogo = wx.Icon('./icons/walletlogo.ico', wx.BITMAP_TYPE_ICO)
+        # self.SetIcon(self.walletlogo)  
+
+        # Set the app icon
+        app_icon_path = get_icon_file()
+        if app_icon_path is not None:
+            self.app_icon = wx.Icon(app_icon_path, wx.BITMAP_TYPE_ICO)
+            self.SetIcon(self.app_icon)
 
         # self.taskBar_icon = wx.adv.TaskBarIcon()
         # self.taskBar_icon.SetIcon(self.walletlogo, "pWallet")
@@ -178,6 +154,10 @@ class MainFrame(wx.Frame):
         self.right_boxsizer.Add(self.right_param_BoxSizer, flag=wx.EXPAND|wx.ALL, border=3)
         self.right_boxsizer.Add(self.right_buttons_BoxSizer, flag=wx.EXPAND|wx.ALL, border=3)
         self.right_boxsizer.Add(self.right_output_BoxSizer, flag=wx.EXPAND|wx.ALL, border=3)
+
+        self.status_bar = self.CreateStatusBar()
+        # Bind extra events
+        self.Bind(wx.EVT_CLOSE, self._on_close)
 
         self._thread = Thread(target = self.run, args = ())
         self._thread.daemon = True
@@ -274,13 +254,21 @@ class MainFrame(wx.Frame):
         # create image list
         img_list = wx.ImageList(16, 16, True, 3)
         img_list.Add(wx.ArtProvider.GetBitmap(wx.ART_FOLDER, size=wx.Size(16, 16)))
-        img_list.Add(wx.ArtProvider.GetBitmap(wx.ART_NORMAL_FILE, size=(16, 16)))
-        img_list.Add(wx.ArtProvider.GetBitmap(wx.ART_NORMAL_FILE, size=(16, 16)))
+        # img_list.Add(wx.ArtProvider.GetBitmap(wx.ART_NORMAL_FILE, size=(16, 16)))
+        # img_list.Add(wx.ArtProvider.GetBitmap(wx.ART_NORMAL_FILE, size=(16, 16)))
         # unchecked = wx.Icon('./icons/unchecked26px.ico', wx.BITMAP_TYPE_ICO) 
         # checked = wx.Icon('./icons/checked26px.ico', wx.BITMAP_TYPE_ICO) 
-
         # img_list.Add(unchecked)
         # img_list.Add(checked)
+
+        tree_img_data = (
+            ("unchecked", "unchecked26px.ico"),
+            ("checked", "checked26px.ico")
+        )
+        self._img_path = get_icons_dir()
+        for item in tree_img_data:
+            target, name = item
+            img_list.Add(wx.Icon(os.path.join(self._img_path, name), wx.BITMAP_TYPE_ICO))
         tree.AssignImageList(img_list)
 
         # create api tree
