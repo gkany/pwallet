@@ -737,11 +737,11 @@ class MainFrame(wx.Frame):
         name_or_id = self.param1_input_text.GetValue().strip()
         log_manager.log("name: {}".format(name_or_id))
         try:
-            # if len(name_or_id.split(".")) == 3:
-            #     text = self.gph.rpc.get_object(name_or_id)
-            # else:
-            contract = Contract(name_or_id)
-            text = contract.contracts_cache[name_or_id]
+            if name_or_id.startswith("1.16."):
+                text = self.gph.rpc.get_object(name_or_id)
+            else:
+                contract = Contract(name_or_id)
+                text = contract.contracts_cache[name_or_id]
             text = json_dumps(text)
         except Exception as e:
             text = "执行失败, {}".format(repr(e))
