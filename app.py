@@ -3,6 +3,7 @@
 import wx
 import wx.adv
 import time
+import sys
 import json
 import requests
 from wx.lib.pubsub import pub
@@ -30,6 +31,8 @@ def call_after(func):
 
 log_manager = LogManager(config_path="./", add_time=True)
 
+# def absolute_path(path):
+#     return path.replace("~", )
 class MainFrame(wx.Frame):
 
     FRAMES_MIN_SIZE = (900, 600)
@@ -37,6 +40,20 @@ class MainFrame(wx.Frame):
 
     def __init__(self, *args, **kwargs):
         super(MainFrame, self).__init__(*args, **kwargs)
+
+        bitmap_data = (
+            ("logo", "walletlogo.ico"),
+            ("checked", "checked26px.ico"),
+            ("unchecked", "unchecked24px.ico")
+        )
+        self._pixmaps_path = os.path.join(os.getcwd(), "icons")
+        log_manager.log("[info] icon path: {}".format(self._pixmaps_path))
+        self._bitmaps = {}
+        for item in bitmap_data:
+            target, name = item
+            log_manager.log("[info] bitmap: {}".format(item))
+            # self._bitmaps[target] = wx.Bitmap(os.path.join(self._pixmaps_path, name))
+            self._bitmaps[target] = wx.Icon(os.path.join(self._pixmaps_path, name), wx.BITMAP_TYPE_ICO)
 
         #default testnet
         self.current_chain = TESTNET_CHAIN 
@@ -90,7 +107,7 @@ class MainFrame(wx.Frame):
         self.SetTitle(title)
 
     def init_sdk(self):
-        chain = CHIAN_CONFIG[self.current_chain]
+        chain = CHAIN_CONFIG[self.current_chain]
         log_manager.log("init sdk. current chain: {}".format(chain))
         init_storage(self.current_chain) # init storage
         if ping(node=chain["address"], num_retries=1):
@@ -131,7 +148,6 @@ class MainFrame(wx.Frame):
 
         left_boxsizer.Add(self.chain_boxsizer, 1, flag=wx.EXPAND | wx.ALL, border=3)
         left_boxsizer.Add(self.tree, 9, flag=wx.EXPAND | wx.ALL, border=3)
-
 
         # 为self.panel_right面板设置一个布局管理器
         # default static_text
@@ -219,7 +235,7 @@ class MainFrame(wx.Frame):
             if len(tokens) >= 1:
                 chain_address = tokens[0]
                 if chain_address.startswith("ws"):
-                    CHIAN_CONFIG[CUSTOMIZE_CHAIN]["address"] = chain_address
+                    CHAIN_CONFIG[CUSTOMIZE_CHAIN]["address"] = chain_address
                 
                 if len(tokens) >= 2:
                     faucet_url = tokens[1]
@@ -238,7 +254,7 @@ class MainFrame(wx.Frame):
         self.mainnetCheck = wx.RadioButton(chain_staticBox, -1, MAINNET_CHAIN) 
         self.customizeCheck = wx.RadioButton(chain_staticBox, -1, CUSTOMIZE_CHAIN) 
 
-        default = "{},{}".format(CHIAN_CONFIG[CUSTOMIZE_CHAIN]["address"], FAUCET_CONFIG[CUSTOMIZE_CHAIN])
+        default = "{},{}".format(CHAIN_CONFIG[CUSTOMIZE_CHAIN]["address"], FAUCET_CONFIG[CUSTOMIZE_CHAIN])
         self.customizeChainText = wx.TextCtrl(chain_staticBox, value=default, size=(180, 20))
 
         self.customizeCheck.Bind(wx.EVT_RADIOBUTTON, self.on_customize_chain) 
@@ -258,12 +274,13 @@ class MainFrame(wx.Frame):
         # create image list
         img_list = wx.ImageList(16, 16, True, 3)
         img_list.Add(wx.ArtProvider.GetBitmap(wx.ART_FOLDER, size=wx.Size(16, 16)))
-        # img_list.Add(wx.ArtProvider.GetBitmap(wx.ART_NORMAL_FILE, size=(16, 16)))
-        unchecked = wx.Icon('./icons/unchecked26px.ico', wx.BITMAP_TYPE_ICO) 
-        checked = wx.Icon('./icons/checked26px.ico', wx.BITMAP_TYPE_ICO) 
+        img_list.Add(wx.ArtProvider.GetBitmap(wx.ART_NORMAL_FILE, size=(16, 16)))
+        img_list.Add(wx.ArtProvider.GetBitmap(wx.ART_NORMAL_FILE, size=(16, 16)))
+        # unchecked = wx.Icon('./icons/unchecked26px.ico', wx.BITMAP_TYPE_ICO) 
+        # checked = wx.Icon('./icons/checked26px.ico', wx.BITMAP_TYPE_ICO) 
 
-        img_list.Add(unchecked)
-        img_list.Add(checked)
+        # img_list.Add(unchecked)
+        # img_list.Add(checked)
         tree.AssignImageList(img_list)
 
         # create api tree

@@ -3,7 +3,7 @@ MAINNET_CHAIN = "mainnet"
 TESTNET_CHAIN = "testnet"
 CUSTOMIZE_CHAIN = "customize"
 
-CHIAN_CONFIG = {
+CHAIN_CONFIG = {
     MAINNET_CHAIN: {
         "name": MAINNET_CHAIN,
         "zh": "主网",
