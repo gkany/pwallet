@@ -52,7 +52,6 @@ class MainFrame(wx.Frame):
         This method is used when the user tries to close the program
         to save the options and make sure that the download & update
         processes are not running.
-
         """
 
         if APP_CONFIRM_EXIT:
@@ -266,9 +265,14 @@ class MainFrame(wx.Frame):
             ("checked", "checked26px.ico")
         )
         self._img_path = get_icons_dir()
-        for item in tree_img_data:
-            target, name = item
-            img_list.Add(wx.Icon(os.path.join(self._img_path, name), wx.BITMAP_TYPE_ICO))
+        log_manager.log("[info] os.name: {}, sys.platform: {}".format(os.name, sys.platform))
+        if os.name == "nt":
+            for item in tree_img_data:
+                target, name = item
+                img_list.Add(wx.Icon(os.path.join(self._img_path, name), wx.BITMAP_TYPE_ICO))
+        else:
+            img_list.Add(wx.ArtProvider.GetBitmap(wx.ART_NORMAL_FILE, size=(16, 16)))
+            img_list.Add(wx.ArtProvider.GetBitmap(wx.ART_NORMAL_FILE, size=(16, 16)))
         tree.AssignImageList(img_list)
 
         # create api tree
