@@ -419,7 +419,7 @@ class MainFrame(wx.Frame):
             input_text_obj_name = "param{}_input_text".format(i+1)
             input_text_obj = getattr(self, input_text_obj_name)
             value = input_text_obj.GetValue().strip()
-            log_manager.log("input_text_obj_name: {}, value: {}", input_text_obj_name, value)
+            log_manager.log("input_text_obj_name: {}, value: {}".format(input_text_obj_name, value))
             args.append(value)
 
         sdk_func = self.get_sdk_api(api_name)
