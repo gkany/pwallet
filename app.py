@@ -273,17 +273,21 @@ class MainFrame(wx.Frame):
 
         # create api tree
         root = tree.AddRoot(text=u"钱包命令", image=0, selImage=2)
+        # add api class
+        self.on_use_api_class = []
         for class_name in API_CLASS:
             api_class_obj = API_CLASS[class_name]
             if api_class_obj["enable"]:
                 item = tree.AppendItem(parent=root, text=class_name, image=0, selImage=2)
                 item_name = "api_class_item_" + class_name
                 setattr(self, item_name, item)
+                self.on_use_api_class.append(class_name)
         
+        # add api item
         for api_name in API_LIST:
             api_obj = API_LIST[api_name]
-            if api_obj["enable"]:
-                class_name = api_obj["class"]
+            class_name = api_obj["class"]
+            if api_obj["enable"] and class_name in self.on_use_api_class:
                 class_item_name = "api_class_item_" + class_name
                 class_item = getattr(self, class_item_name)
                 tree.AppendItem(parent=class_item, text=api_name, image=1, selImage=2)
@@ -292,6 +296,7 @@ class MainFrame(wx.Frame):
                 if len(api_obj["params"]) == 0:
                     API_EMPTY_PARAM.append(api_name)
 
+        # api class Expand or hide
         for class_name in API_CLASS:
             api_class_obj = API_CLASS[class_name]
             if api_class_obj["enable"]:
@@ -311,7 +316,8 @@ class MainFrame(wx.Frame):
         self.api_label.SetLabel(item_name)
         self.current_api_name = item_name
         result = self.wallet_tree_on_click_impl(item_name)
-        if len(result) > 0:
+        # print("result: {}, len: {}, type: {}".format(result, len(result), type(result)))
+        if result != '""':
             self.show_output_text(result)
 
     def gen_param_column(self, parent_panel, label_tip):

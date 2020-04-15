@@ -90,7 +90,7 @@ API_CLASS = {
     },
     "file": {
         "name": "file",
-        "enable": True,
+        "enable": False,
         "isExpand": False,
         "desc": "file"
     }
@@ -437,10 +437,194 @@ API_LIST = {
         "sdk_name": [],
         "desc": ""
     },
-    "create_asset": {
-        "name": "create_asset",
+    "asset_create": {
+        "name": "asset_create",
         "class": "asset",
-        "params": [],
+        "params": [
+            [
+                "Symbol",
+                ""
+            ],
+            [
+                "Precision",
+                ""
+            ],
+            [
+                "Common options",
+                "[]"
+            ],
+            [
+                "Bitasset opts",
+                ""
+            ],
+            [
+                "Account",
+                "1.2."
+            ]
+        ],
+        "enable": True,
+        "sdk_name": [],
+        "desc": ""
+    },
+    "asset_issue": {
+        "name": "asset_issue",
+        "class": "asset",
+        "params": [
+            [
+                "Amount",
+                ""
+            ],
+            [
+                "Asset",
+                "1.3."
+            ],
+            [
+                "issue_to_account",
+                "1.2."
+            ],
+            [
+                "memo",
+                ""
+            ],
+            [
+                "Account",
+                "1.2."
+            ]
+        ],
+        "enable": True,
+        "sdk_name": [],
+        "desc": ""
+    },
+    "asset_update": {
+        "name": "asset_update",
+        "class": "asset",
+        "params": [
+            [
+                "Asset",
+                "1.3."
+            ],
+            [
+                "new_options",
+                ""
+            ],
+            [
+                "Issuer",
+                "1.2."
+            ],
+            [
+                "Account",
+                "1.2."
+            ]
+        ],
+        "enable": True,
+        "sdk_name": [],
+        "desc": ""
+    },
+    "asset_update_bitasset": {
+        "name": "asset_update_bitasset",
+        "class": "asset",
+        "params": [
+            [
+                "Asset",
+                "1.3."
+            ],
+            [
+                "new_options",
+                "[]"
+            ],
+            [
+                "Account",
+                "1.2."
+            ]
+        ],
+        "enable": True,
+        "sdk_name": [],
+        "desc": ""
+    },
+    "asset_update_feed_producers": {
+        "name": "asset_update_feed_producers",
+        "class": "asset",
+        "params": [
+            [
+                "Asset",
+                "1.3."
+            ],
+            [
+                "feed_producers",
+                "逗号分隔"
+            ],
+            [
+                "Account",
+                "1.2."
+            ]
+        ],
+        "enable": True,
+        "sdk_name": [],
+        "desc": ""
+    },
+    "asset_settle": {
+        "name": "asset_settle",
+        "class": "asset",
+        "params": [
+            [
+                "Amount",
+                ""
+            ],
+            [
+                "Asset",
+                "1.3."
+            ],
+            [
+                "Account",
+                "1.2."
+            ]
+        ],
+        "enable": True,
+        "sdk_name": [],
+        "desc": ""
+    },
+    "asset_settle_cancel": {
+        "name": "asset_settle_cancel",
+        "class": "asset",
+        "params": [
+            [
+                "Settlement",
+                ""
+            ],
+            [
+                "Amount",
+                ""
+            ],
+            [
+                "Asset",
+                "1.3."
+            ],
+            [
+                "Account",
+                "1.2."
+            ]
+        ],
+        "enable": True,
+        "sdk_name": [],
+        "desc": ""
+    },
+    "asset_global_settle": {
+        "name": "asset_global_settle",
+        "class": "asset",
+        "params": [
+            [
+                "asset_to_settle",
+                "1.3."
+            ],
+            [
+                "settle_price",
+                ""
+            ],
+            [
+                "Account",
+                "1.2."
+            ]
+        ],
         "enable": True,
         "sdk_name": [],
         "desc": ""
@@ -461,7 +645,24 @@ API_LIST = {
     "create_contract": {
         "name": "create_contract",
         "class": "contract",
-        "params": [],
+        "params": [
+            [
+                "Contract name",
+                "contract."
+            ],
+            [
+                "Contract data",
+                ""
+            ],
+            [
+                "Contract authority",
+                "公钥"
+            ],
+            [
+                "Account",
+                "1.2."
+            ]
+        ],
         "enable": True,
         "sdk_name": [],
         "desc": ""
@@ -469,7 +670,20 @@ API_LIST = {
     "revise_contract": {
         "name": "revise_contract",
         "class": "contract",
-        "params": [],
+        "params": [
+            [
+                "Contract",
+                "1.16."
+            ],
+            [
+                "Contract data",
+                ""
+            ],
+            [
+                "Account",
+                "1.2."
+            ]
+        ],
         "enable": True,
         "sdk_name": [],
         "desc": ""
@@ -477,7 +691,24 @@ API_LIST = {
     "call_contract": {
         "name": "call_contract",
         "class": "contract",
-        "params": [],
+        "params": [
+            [
+                "Contract",
+                "contract."
+            ],
+            [
+                "Function",
+                ""
+            ],
+            [
+                "Value list",
+                "[]"
+            ],
+            [
+                "Account",
+                "1.2."
+            ]
+        ],
         "enable": True,
         "sdk_name": [],
         "desc": ""
