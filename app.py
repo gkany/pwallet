@@ -18,6 +18,10 @@ from eggs import cherry_forever, get_random_verse
 
 from config import *
 from utils import *
+from info import (
+    __author__,
+    __description__
+)
 from logmanager import LogManager
 
 
@@ -31,32 +35,59 @@ def call_after(func):
 
 log_manager = LogManager(config_path="./", add_time=True)
 
+class WalletTaskBarICON(wx.adv.TaskBarIcon):
+    ICON = get_icon_file()  
+    ID_ABOUT = -1  
+    ID_EXIT = -1  
+    TITLE = "桌面钱包"  
+
+    def __init__(self, title):
+        wx.adv.TaskBarIcon.__init__(self)
+        self.TITLE = title
+        self.SetIcon(wx.Icon(self.ICON), self.TITLE)  
+        self.Bind(wx.EVT_MENU, self.onAbout, id=self.ID_ABOUT)  
+        self.Bind(wx.EVT_MENU, self.onExit, id=self.ID_EXIT) 
+
+    def onAbout(self, event):
+        wx.MessageBox('程序作者：{}\n软件描述：{}'.format(__author__, __description__), "关于")
+
+    def onExit(self, event):
+        wx.Exit()
+
+    def create_popup_menu(self):
+        menu = wx.Menu()
+        for attr in self.get_menu_attrs():
+            menu.Append(attr[1], attr[0])
+        return menu
+
+    def get_menu_attrs(self):
+        return [('关于', self.ID_ABOUT), ('退出', self.ID_EXIT)]
 
 class MainFrame(wx.Frame):
 
-    FRAMES_MIN_SIZE = (900, 600)
+    _FRAMES_MIN_SIZE = (900, 600)
+    _BASIC_TITLE = "桌面钱包"
     API_BUTTON_CLICK_EVENT_PREFIX_ = "api_button_on_click_"
 
     def __init__(self, *args, **kwargs):
         super(MainFrame, self).__init__(*args, **kwargs)
 
+        # Set taskBarIcon
+        WalletTaskBarICON(title=self._BASIC_TITLE)
+
         #default testnet
         self.current_chain = TESTNET_CHAIN 
         self.faucet_url = FAUCET_CONFIG[self.current_chain] + FAUCET_ROUTE
+
+        self.title_write('{} -- {}'.format(self._BASIC_TITLE, self.current_chain))
+
         self.init_sdk()
+
         self.layout_mainframe()
 
     def _on_close(self, event):
-        """Event handler for the wx.EVT_CLOSE event.
-
-        This method is used when the user tries to close the program
-        to save the options and make sure that the download & update
-        processes are not running.
-        """
-
         if APP_CONFIRM_EXIT:
             dlg = wx.MessageDialog(self, "Are you sure you want to exit?", "Exit", wx.YES_NO | wx.ICON_QUESTION)
-
             result = dlg.ShowModal() == wx.ID_YES
             dlg.Destroy()
         else:
@@ -68,11 +99,10 @@ class MainFrame(wx.Frame):
     def close(self):
         self.Destroy()
 
-    def status_bar_write(self, msg):
-        """Display msg in the status bar. """
+    def status_bar_write(self, msg=""):
         self.status_bar.SetStatusText(msg)
 
-    def title_write(self, title="桌面钱包"):
+    def title_write(self, title=_BASIC_TITLE):
         self.SetTitle(title)
 
     def init_sdk(self):
@@ -86,10 +116,7 @@ class MainFrame(wx.Frame):
             self.gph = None
 
     def layout_mainframe(self):
-        super().__init__(parent=None, title="pWallet", size=(900, 600))
-        self.title_write('桌面钱包 -- {}'.format(self.current_chain))
-        # self.walletlogo = wx.Icon('./icons/walletlogo.ico', wx.BITMAP_TYPE_ICO)
-        # self.SetIcon(self.walletlogo)  
+        super().__init__(parent=None)
 
         # Set the app icon
         app_icon_path = get_icon_file()
@@ -97,10 +124,7 @@ class MainFrame(wx.Frame):
             self.app_icon = wx.Icon(app_icon_path, wx.BITMAP_TYPE_ICO)
             self.SetIcon(self.app_icon)
 
-        # self.taskBar_icon = wx.adv.TaskBarIcon()
-        # self.taskBar_icon.SetIcon(self.walletlogo, "pWallet")
-
-        self.SetSize(size=(900, 600))
+        self.SetSize(size=self._FRAMES_MIN_SIZE)
         self.Center()
 
         sp_window = wx.SplitterWindow(parent=self, id=-1)
@@ -116,8 +140,7 @@ class MainFrame(wx.Frame):
         left_boxsizer = wx.BoxSizer(wx.VERTICAL)
         self.panel_left.SetSizer(left_boxsizer)
 
-        self.chain_boxsizer = self.create_chain_BoxSizer(self.panel_left)
-        # self.chain_boxsizer = self.create_chain_BoxSizer_by_radioBox(self.panel_left)
+        self.chain_boxsizer = self.gen_chain_BoxSizer(self.panel_left)
         self.tree = self.create_TreeCtrl(self.panel_left)
         self.Bind(wx.EVT_TREE_SEL_CHANGING, self.wallet_tree_on_click, self.tree)
 
@@ -192,8 +215,7 @@ class MainFrame(wx.Frame):
 
     @call_after
     def updateDisplay(self, msg):
-        # title = '桌面钱包 -- {} | {}              {}'.format(self.current_chain, msg, get_random_verse())
-        title = '桌面钱包 -- {} | {}'.format(self.current_chain, msg)
+        title = '{} -- {} | {}'.format(self._BASIC_TITLE, self.current_chain, msg)
         self.SetTitle(title)
 
     # current chain set
@@ -224,9 +246,9 @@ class MainFrame(wx.Frame):
         self.faucet_url = FAUCET_CONFIG[chain_name] + FAUCET_ROUTE
         init_storage(chain_name) # init storage
         self.init_sdk()
-        self.title_write('桌面钱包 -- {}'.format(chain_name))
+        self.title_write('{} -- {}'.format(self._BASIC_TITLE, self.chain_name))
 
-    def create_chain_BoxSizer(self, parent):
+    def gen_chain_BoxSizer(self, parent):
         chain_staticBox = wx.StaticBox(parent, label=u'请选择您使用的链: ')
         chain_boxsizer = wx.StaticBoxSizer(chain_staticBox, wx.VERTICAL)
         self.testnetCheck = wx.RadioButton(chain_staticBox, -1, TESTNET_CHAIN, style=wx.RB_GROUP) 

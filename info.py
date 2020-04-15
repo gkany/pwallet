@@ -17,7 +17,7 @@ __projecturl__ = ''
 __appname__ = 'pWallet'
 __license__ = 'UNLICENSE'
 
-__description__ = 'Cocos-BCX blockchain wallet'
+__description__ = 'COCOS-BCX Blockchain Desk Wallet'
 
 __descriptionfull__ = '''A cross platform front-end GUI of the Cocos-BCX blockchain wallet written in wxPython'''
 
