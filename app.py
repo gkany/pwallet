@@ -20,6 +20,7 @@ from config import *
 from utils import *
 from info import (
     __author__,
+    __appname__,
     __description__
 )
 from logmanager import LogManager
@@ -36,32 +37,44 @@ def call_after(func):
 log_manager = LogManager(config_path="./", add_time=True)
 
 class WalletTaskBarICON(wx.adv.TaskBarIcon):
-    ICON = get_icon_file()  
-    ID_ABOUT = -1  
-    ID_EXIT = -1  
-    TITLE = "桌面钱包"  
-
-    def __init__(self, title):
+    def __init__(self, title=__appname__, frame):
         wx.adv.TaskBarIcon.__init__(self)
-        self.TITLE = title
-        self.SetIcon(wx.Icon(self.ICON), self.TITLE)  
-        self.Bind(wx.EVT_MENU, self.onAbout, id=self.ID_ABOUT)  
-        self.Bind(wx.EVT_MENU, self.onExit, id=self.ID_EXIT) 
+        self._title = title
+        self.MainFrame = frame
+        self.SetIcon(wx.Icon(get_icon_file()), self._title)  
+        self.Bind(wx.adv.EVT_TASKBAR_LEFT_DCLICK, self.on_double_click)
 
-    def onAbout(self, event):
-        wx.MessageBox('程序作者：{}\n软件描述：{}'.format(__author__, __description__), "关于")
-
-    def onExit(self, event):
-        wx.Exit()
-
-    def create_popup_menu(self):
+    # override
+    def CreatePopupMenu(self):
         menu = wx.Menu()
-        for attr in self.get_menu_attrs():
-            menu.Append(attr[1], attr[0])
+        for name, handler in self.menu_attrs():
+            if not name:    # empty: add separator
+                menu.AppendSeparator()
+                continue
+            item = wx.MenuItem(None, wx.ID_ANY, text=name, kind=wx.ITEM_NORMAL) 
+            menu.Append(item)
+            self.Bind(wx.EVT_MENU, handler, item)
         return menu
 
-    def get_menu_attrs(self):
-        return [('关于', self.ID_ABOUT), ('退出', self.ID_EXIT)]
+    def menu_attrs(self):
+        return (
+            ('关于', self.on_about), 
+            ('退出', self.on_exit)
+        )
+
+    def on_about(self, event):
+        wx.MessageBox('程序作者：{}\n软件描述：{}'.format(__author__, __description__), "关于")
+
+    def on_exit(self, event):
+        wx.Exit()
+
+    def on_double_click(self, event):
+        if self.MainFrame.IsIconized():
+            self.MainFrame.Iconize(False)
+
+        if not self.MainFrame.IsShown():
+            self.MainFrame.Show(True)
+        self.MainFrame.Raise()
 
 class MainFrame(wx.Frame):
 
@@ -72,8 +85,13 @@ class MainFrame(wx.Frame):
     def __init__(self, *args, **kwargs):
         super(MainFrame, self).__init__(*args, **kwargs)
 
+        # create a welcome screen  
+        # screen = wx.Image(self.screenIm).ConvertToBitmap()  
+        # wx.SplashScreen(screen, wx.SPLASH_CENTRE_ON_SCREEN | wx.SPLASH_TIMEOUT,1000, None, -1)  
+        # wx.Yield()  
+
         # Set taskBarIcon
-        WalletTaskBarICON(title=self._BASIC_TITLE)
+        self.taskbar_icon = WalletTaskBarICON(title=self._BASIC_TITLE, frame=self)
 
         #default testnet
         self.current_chain = TESTNET_CHAIN 
@@ -97,7 +115,12 @@ class MainFrame(wx.Frame):
             self.close()
 
     def close(self):
-        self.Destroy()
+        if FRAME_CLOSE_HIDE:
+            self.Hide()
+        else:
+            # self.taskbar_icon.on_exit(wx.EVT_MENU)
+            self.taskbar_icon.Destroy()
+            self.Destroy()
 
     def status_bar_write(self, msg=""):
         self.status_bar.SetStatusText(msg)

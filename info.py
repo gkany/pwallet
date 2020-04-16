@@ -14,7 +14,7 @@ __author__ = 'gkany'
 __contact__ = ''
 __projecturl__ = ''
 
-__appname__ = 'pWallet'
+__appname__ = 'pwallet'
 __license__ = 'UNLICENSE'
 
 __description__ = 'COCOS-BCX Blockchain Desk Wallet'

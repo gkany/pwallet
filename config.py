@@ -1,4 +1,5 @@
 APP_CONFIRM_EXIT = False
+FRAME_CLOSE_HIDE = True
 
 MAINNET_CHAIN = "mainnet"
 TESTNET_CHAIN = "testnet"
