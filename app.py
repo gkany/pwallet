@@ -481,6 +481,7 @@ class MainFrame(wx.Frame):
 
         sdk_func = self.get_sdk_api(api_name)
         if sdk_func:
+            text = ""
             try:
                 # sdk api args no support 变长参数
                 if size == 0:

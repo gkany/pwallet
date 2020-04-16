@@ -91,9 +91,15 @@ API_CLASS = {
     },
     "file": {
         "name": "file",
-        "enable": False,
+        "enable": True,
         "isExpand": False,
         "desc": "file"
+    },
+    "committee_vesting": {
+        "name": "committee_vesting",
+        "enable": True,
+        "isExpand": False,
+        "desc": "committee witness and vesting"
     }
 }
 
@@ -848,6 +854,89 @@ API_LIST = {
         "name": "relate_parent_file",
         "class": "file",
         "params": [],
+        "enable": True,
+        "sdk_name": [],
+        "desc": ""
+    },
+    "get_vesting_balances": {
+        "name": "get_vesting_balances",
+        "class": "committee_vesting",
+        "params": [
+            [
+                "account_id_or_name",
+                "1.2."
+            ]
+        ],
+        "enable": True,
+        "sdk_name": [],
+        "desc": ""
+    },
+    "vesting_balance_create": {
+        "name": "vesting_balance_create",
+        "class": "committee_vesting",
+        "params": [
+            [
+                "Owner",
+                "1.2."
+            ],
+            [
+                "Amount",
+                ""
+            ],
+            [
+                "Asset",
+                "1.3."
+            ],
+            [
+                "start",
+                ""
+            ],
+            [
+                "_type",
+                "linear or cdd"
+            ],
+            [
+                "vesting_cliff_seconds",
+                "0"
+            ],
+            [
+                "vesting_duration_seconds",
+                "0"
+            ],
+            [
+                "vesting_seconds",
+                "0"
+            ],
+            [
+                "Account",
+                "1.2."
+            ]
+        ],
+        "enable": True,
+        "sdk_name": [],
+        "desc": ""
+    },
+    "vesting_balance_withdraw": {
+        "name": "vesting_balance_withdraw",
+        "class": "committee_vesting",
+        "params": [
+            [
+                "vesting_id",
+                ""
+            ],
+            [
+                "Amount",
+                ""
+            ],
+            [
+                "Asset",
+                "1.3."
+            ],
+            [
+                "Account",
+                "1.2."
+            ]
+        ],
         "enable": True,
         "sdk_name": [],
         "desc": ""
