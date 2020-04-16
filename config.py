@@ -1,14 +1,33 @@
-env = ["mainnet", "testnet", "customize"]
-NODE_ADDRESSES = {
-    env[0]: "wss://api.cocosbcx.net",
-    env[1]: "wss://test.cocosbcx.net", 
-    env[2]: "ws://127.0.0.1:8049"
+APP_CONFIRM_EXIT = False
+FRAME_CLOSE_HIDE = True
+
+MAINNET_CHAIN = "mainnet"
+TESTNET_CHAIN = "testnet"
+CUSTOMIZE_CHAIN = "customize"
+
+CHAIN_CONFIG = {
+    MAINNET_CHAIN: {
+        "name": MAINNET_CHAIN,
+        "zh": "主网",
+        "address":"wss://api.cocosbcx.net"
+    },
+    TESTNET_CHAIN: {
+        "name": TESTNET_CHAIN,
+        "zh": "测试网",
+        "address":"wss://test.cocosbcx.net"
+    },
+    CUSTOMIZE_CHAIN: {
+        "name": CUSTOMIZE_CHAIN,
+        "zh": "自定义",
+        "address":"ws://127.0.0.1:8049"
+    },
 }
 
-FAUCET_URLS = {
-    env[0]: "https://api-faucet.cocosbcx.net/api/v1/accounts",
-    env[1]: "https://test-faucet.cocosbcx.net/api/v1/accounts", 
-    env[2]: "http://127.0.0.1:8041/api/v1/accounts"
+FAUCET_ROUTE = "/api/v1/accounts"
+FAUCET_CONFIG = {
+    MAINNET_CHAIN: "https://api-faucet.cocosbcx.net",
+    TESTNET_CHAIN: "https://test-faucet.cocosbcx.net", 
+    CUSTOMIZE_CHAIN: "http://127.0.0.1:8041"
 }
 
 headers = {"content-type": "application/json"}
@@ -75,6 +94,12 @@ API_CLASS = {
         "enable": True,
         "isExpand": False,
         "desc": "file"
+    },
+    "committee_vesting": {
+        "name": "committee_vesting",
+        "enable": True,
+        "isExpand": False,
+        "desc": "committee witness and vesting"
     }
 }
 
@@ -419,10 +444,194 @@ API_LIST = {
         "sdk_name": [],
         "desc": ""
     },
-    "create_asset": {
-        "name": "create_asset",
+    "asset_create": {
+        "name": "asset_create",
         "class": "asset",
-        "params": [],
+        "params": [
+            [
+                "Symbol",
+                ""
+            ],
+            [
+                "Precision",
+                ""
+            ],
+            [
+                "Common options",
+                "[]"
+            ],
+            [
+                "Bitasset opts",
+                ""
+            ],
+            [
+                "Account",
+                "1.2."
+            ]
+        ],
+        "enable": True,
+        "sdk_name": [],
+        "desc": ""
+    },
+    "asset_issue": {
+        "name": "asset_issue",
+        "class": "asset",
+        "params": [
+            [
+                "Amount",
+                ""
+            ],
+            [
+                "Asset",
+                "1.3."
+            ],
+            [
+                "issue_to_account",
+                "1.2."
+            ],
+            [
+                "memo",
+                ""
+            ],
+            [
+                "Account",
+                "1.2."
+            ]
+        ],
+        "enable": True,
+        "sdk_name": [],
+        "desc": ""
+    },
+    "asset_update": {
+        "name": "asset_update",
+        "class": "asset",
+        "params": [
+            [
+                "Asset",
+                "1.3."
+            ],
+            [
+                "new_options",
+                ""
+            ],
+            [
+                "Issuer",
+                "1.2."
+            ],
+            [
+                "Account",
+                "1.2."
+            ]
+        ],
+        "enable": True,
+        "sdk_name": [],
+        "desc": ""
+    },
+    "asset_update_bitasset": {
+        "name": "asset_update_bitasset",
+        "class": "asset",
+        "params": [
+            [
+                "Asset",
+                "1.3."
+            ],
+            [
+                "new_options",
+                "[]"
+            ],
+            [
+                "Account",
+                "1.2."
+            ]
+        ],
+        "enable": True,
+        "sdk_name": [],
+        "desc": ""
+    },
+    "asset_update_feed_producers": {
+        "name": "asset_update_feed_producers",
+        "class": "asset",
+        "params": [
+            [
+                "Asset",
+                "1.3."
+            ],
+            [
+                "feed_producers",
+                "逗号分隔"
+            ],
+            [
+                "Account",
+                "1.2."
+            ]
+        ],
+        "enable": True,
+        "sdk_name": [],
+        "desc": ""
+    },
+    "asset_settle": {
+        "name": "asset_settle",
+        "class": "asset",
+        "params": [
+            [
+                "Amount",
+                ""
+            ],
+            [
+                "Asset",
+                "1.3."
+            ],
+            [
+                "Account",
+                "1.2."
+            ]
+        ],
+        "enable": True,
+        "sdk_name": [],
+        "desc": ""
+    },
+    "asset_settle_cancel": {
+        "name": "asset_settle_cancel",
+        "class": "asset",
+        "params": [
+            [
+                "Settlement",
+                ""
+            ],
+            [
+                "Amount",
+                ""
+            ],
+            [
+                "Asset",
+                "1.3."
+            ],
+            [
+                "Account",
+                "1.2."
+            ]
+        ],
+        "enable": True,
+        "sdk_name": [],
+        "desc": ""
+    },
+    "asset_global_settle": {
+        "name": "asset_global_settle",
+        "class": "asset",
+        "params": [
+            [
+                "asset_to_settle",
+                "1.3."
+            ],
+            [
+                "settle_price",
+                ""
+            ],
+            [
+                "Account",
+                "1.2."
+            ]
+        ],
         "enable": True,
         "sdk_name": [],
         "desc": ""
@@ -443,7 +652,24 @@ API_LIST = {
     "create_contract": {
         "name": "create_contract",
         "class": "contract",
-        "params": [],
+        "params": [
+            [
+                "Contract name",
+                "contract."
+            ],
+            [
+                "Contract data",
+                ""
+            ],
+            [
+                "Contract authority",
+                "公钥"
+            ],
+            [
+                "Account",
+                "1.2."
+            ]
+        ],
         "enable": True,
         "sdk_name": [],
         "desc": ""
@@ -451,7 +677,20 @@ API_LIST = {
     "revise_contract": {
         "name": "revise_contract",
         "class": "contract",
-        "params": [],
+        "params": [
+            [
+                "Contract",
+                "1.16."
+            ],
+            [
+                "Contract data",
+                ""
+            ],
+            [
+                "Account",
+                "1.2."
+            ]
+        ],
         "enable": True,
         "sdk_name": [],
         "desc": ""
@@ -459,7 +698,24 @@ API_LIST = {
     "call_contract": {
         "name": "call_contract",
         "class": "contract",
-        "params": [],
+        "params": [
+            [
+                "Contract",
+                "contract."
+            ],
+            [
+                "Function",
+                ""
+            ],
+            [
+                "Value list",
+                "[]"
+            ],
+            [
+                "Account",
+                "1.2."
+            ]
+        ],
         "enable": True,
         "sdk_name": [],
         "desc": ""
@@ -598,6 +854,102 @@ API_LIST = {
         "name": "relate_parent_file",
         "class": "file",
         "params": [],
+        "enable": True,
+        "sdk_name": [],
+        "desc": ""
+    },
+    "get_vesting_balances": {
+        "name": "get_vesting_balances",
+        "class": "committee_vesting",
+        "params": [
+            [
+                "account_id_or_name",
+                "1.2."
+            ]
+        ],
+        "enable": True,
+        "sdk_name": [],
+        "desc": ""
+    },
+    "vesting_balance_create": {
+        "name": "vesting_balance_create",
+        "class": "committee_vesting",
+        "params": [
+            [
+                "Owner",
+                "1.2."
+            ],
+            [
+                "Amount",
+                ""
+            ],
+            [
+                "Asset",
+                "1.3."
+            ],
+            [
+                "start",
+                ""
+            ],
+            [
+                "_type",
+                "linear or cdd"
+            ],
+            [
+                "vesting_cliff_seconds",
+                "0"
+            ],
+            [
+                "vesting_duration_seconds",
+                "0"
+            ],
+            [
+                "vesting_seconds",
+                "0"
+            ],
+            [
+                "Account",
+                "1.2."
+            ]
+        ],
+        "enable": True,
+        "sdk_name": [],
+        "desc": ""
+    },
+    "vesting_balance_withdraw": {
+        "name": "vesting_balance_withdraw",
+        "class": "committee_vesting",
+        "params": [
+            [
+                "vesting_id",
+                ""
+            ],
+            [
+                "Amount",
+                ""
+            ],
+            [
+                "Asset",
+                "1.3."
+            ],
+            [
+                "Account",
+                "1.2."
+            ]
+        ],
+        "enable": True,
+        "sdk_name": [],
+        "desc": ""
+    },
+    "get_signature_keys": {
+        "name": "get_signature_keys",
+        "class": "transaction",
+        "params": [
+            [
+                "transaction",
+                ""
+            ]
+        ],
         "enable": True,
         "sdk_name": [],
         "desc": ""

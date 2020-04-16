@@ -3,6 +3,7 @@
 import wx
 import wx.adv
 import time
+import sys
 import json
 import requests
 from wx.lib.pubsub import pub
@@ -17,6 +18,13 @@ from eggs import cherry_forever, get_random_verse
 
 from config import *
 from utils import *
+from info import (
+    __author__,
+    __appname__,
+    __description__
+)
+from logmanager import LogManager
+
 
 def json_dumps(json_data):
     return json.dumps(json_data, indent=4)
@@ -26,38 +34,128 @@ def call_after(func):
         return wx.CallAfter(func, *args, **kwargs)
     return _wrapper
 
+log_manager = LogManager(config_path="./", add_time=True)
+
+class WalletTaskBarICON(wx.adv.TaskBarIcon):
+    def __init__(self, frame, title=__appname__, ):
+        wx.adv.TaskBarIcon.__init__(self)
+        self._title = title
+        self.MainFrame = frame
+        self.SetIcon(wx.Icon(get_icon_file()), self._title)  
+        self.Bind(wx.adv.EVT_TASKBAR_LEFT_DCLICK, self.on_double_click)
+
+    # override
+    def CreatePopupMenu(self):
+        menu = wx.Menu()
+        for name, handler in self.menu_attrs():
+            if not name:    # empty: add separator
+                menu.AppendSeparator()
+                continue
+            item = wx.MenuItem(None, wx.ID_ANY, text=name, kind=wx.ITEM_NORMAL) 
+            menu.Append(item)
+            self.Bind(wx.EVT_MENU, handler, item)
+        return menu
+
+    def menu_attrs(self):
+        return (
+            ('关于', self.on_about), 
+            ('退出', self.on_exit)
+        )
+
+    def on_about(self, event):
+        wx.MessageBox('程序作者：{}\n软件描述：{}'.format(__author__, __description__), "关于")
+
+    def on_exit(self, event):
+        wx.Exit()
+
+    def on_double_click(self, event):
+        if self.MainFrame.IsIconized():
+            self.MainFrame.Iconize(False)
+
+        if not self.MainFrame.IsShown():
+            self.MainFrame.Show(True)
+        self.MainFrame.Raise()
+
+def screen_show():
+    pass
+    ## welcome screen 
+    # bmp = wx.Image(get_icon_file()).ConvertToBitmap()
+    # wx.SplashScreen(bmp,
+    #                 wx.SPLASH_CENTER_ON_SCREEN | wx.SPLASH_TIMEOUT,
+    #                 1000,
+    #                 None,
+    #                 -1)
+    # wx.Yield()
+
 class MainFrame(wx.Frame):
 
-    FRAMES_MIN_SIZE = (900, 600)
+    _FRAMES_MIN_SIZE = (900, 600)
+    _BASIC_TITLE = "桌面钱包"
     API_BUTTON_CLICK_EVENT_PREFIX_ = "api_button_on_click_"
 
     def __init__(self, *args, **kwargs):
         super(MainFrame, self).__init__(*args, **kwargs)
-        self.env = env[1] #default testnet
-        self.node_address = NODE_ADDRESSES[self.env]
-        self.faucet_url = FAUCET_URLS[self.env]
-        self.initGraphene(self.node_address, self.env)
-        self.InitUI()
 
-    def initGraphene(self, node_address, current_chain):
-        print("init graphene: {} {}".format(node_address, current_chain))
-        init_storage(current_chain) # init storage
-        if ping(node=node_address, num_retries=1):
-            self.gph = Graphene(node=node_address, num_retries=1, current_chain=current_chain) 
+        # screen_show()
+
+        # Set taskBarIcon
+        self.taskbar_icon = WalletTaskBarICON(frame=self, title=self._BASIC_TITLE)
+
+        #default testnet
+        self.current_chain = TESTNET_CHAIN 
+        self.faucet_url = FAUCET_CONFIG[self.current_chain] + FAUCET_ROUTE
+
+        self.title_write('{} -- {}'.format(self._BASIC_TITLE, self.current_chain))
+
+        self.init_sdk()
+
+        self.layout_mainframe()
+
+    def _on_close(self, event):
+        if APP_CONFIRM_EXIT:
+            dlg = wx.MessageDialog(self, "Are you sure you want to exit?", "Exit", wx.YES_NO | wx.ICON_QUESTION)
+            result = dlg.ShowModal() == wx.ID_YES
+            dlg.Destroy()
+        else:
+            result = True
+
+        if result:
+            self.close()
+
+    def close(self):
+        if FRAME_CLOSE_HIDE:
+            self.Hide()
+        else:
+            # self.taskbar_icon.on_exit(wx.EVT_MENU)
+            self.taskbar_icon.Destroy()
+            self.Destroy()
+
+    def status_bar_write(self, msg=""):
+        self.status_bar.SetStatusText(msg)
+
+    def title_write(self, title=_BASIC_TITLE):
+        self.SetTitle(title)
+
+    def init_sdk(self):
+        chain = CHAIN_CONFIG[self.current_chain]
+        log_manager.log("init sdk. current chain: {}".format(chain))
+        init_storage(self.current_chain) # init storage
+        if ping(node=chain["address"], num_retries=1):
+            self.gph = Graphene(node=chain["address"], num_retries=1, current_chain=self.current_chain) 
             set_shared_graphene_instance(self.gph)
         else:
             self.gph = None
 
-    def InitUI(self):
-        super().__init__(parent=None, title="pWallet", size=(900, 600))
-        self.SetTitle('桌面钱包 -- {}'.format(self.env))
-        self.walletlogo = wx.Icon('./icons/walletlogo.ico', wx.BITMAP_TYPE_ICO)
-        self.SetIcon(self.walletlogo)  
+    def layout_mainframe(self):
+        super().__init__(parent=None)
 
-        # self.taskBar_icon = wx.adv.TaskBarIcon()
-        # self.taskBar_icon.SetIcon(self.walletlogo, "pWallet")
+        # Set the app icon
+        app_icon_path = get_icon_file()
+        if app_icon_path is not None:
+            self.app_icon = wx.Icon(app_icon_path, wx.BITMAP_TYPE_ICO)
+            self.SetIcon(self.app_icon)
 
-        self.SetSize(size=(900, 600))
+        self.SetSize(size=self._FRAMES_MIN_SIZE)
         self.Center()
 
         sp_window = wx.SplitterWindow(parent=self, id=-1)
@@ -73,13 +171,12 @@ class MainFrame(wx.Frame):
         left_boxsizer = wx.BoxSizer(wx.VERTICAL)
         self.panel_left.SetSizer(left_boxsizer)
 
-        self.chain_boxsizer = self.create_chain_BoxSizer(self.panel_left)
+        self.chain_boxsizer = self.gen_chain_BoxSizer(self.panel_left)
         self.tree = self.create_TreeCtrl(self.panel_left)
         self.Bind(wx.EVT_TREE_SEL_CHANGING, self.wallet_tree_on_click, self.tree)
 
         left_boxsizer.Add(self.chain_boxsizer, 1, flag=wx.EXPAND | wx.ALL, border=3)
         left_boxsizer.Add(self.tree, 9, flag=wx.EXPAND | wx.ALL, border=3)
-
 
         # 为self.panel_right面板设置一个布局管理器
         # default static_text
@@ -101,7 +198,7 @@ class MainFrame(wx.Frame):
 
         # result
         self.right_output_BoxSizer = wx.BoxSizer()
-        self.output_text = wx.TextCtrl(self.panel_right, size = (1000, 768), style = wx.TE_MULTILINE | wx.HSCROLL)
+        self.output_text = wx.TextCtrl(self.panel_right, size=(1000, 768), style=wx.TE_MULTILINE|wx.HSCROLL|wx.TE_RICH|wx.TE_PROCESS_ENTER)
         self.right_output_BoxSizer.Add(self.output_text, proportion=0, flag=wx.EXPAND|wx.ALL, border=3)
 
         # layout
@@ -110,6 +207,10 @@ class MainFrame(wx.Frame):
         self.right_boxsizer.Add(self.right_param_BoxSizer, flag=wx.EXPAND|wx.ALL, border=3)
         self.right_boxsizer.Add(self.right_buttons_BoxSizer, flag=wx.EXPAND|wx.ALL, border=3)
         self.right_boxsizer.Add(self.right_output_BoxSizer, flag=wx.EXPAND|wx.ALL, border=3)
+
+        self.status_bar = self.CreateStatusBar()
+        # Bind extra events
+        self.Bind(wx.EVT_CLOSE, self._on_close)
 
         self._thread = Thread(target = self.run, args = ())
         self._thread.daemon = True
@@ -125,7 +226,7 @@ class MainFrame(wx.Frame):
                     block_msg = "区块高度：{}".format(head_block_number)
 
                     wallet_status = self.gph.wallet.created()
-                    # print("wallet_status: {}".format(wallet_status))
+                    # log_manager.log("wallet_status: {}".format(wallet_status))
                     if wallet_status:
                         locked_status = self.gph.wallet.locked()
                         if locked_status:
@@ -138,58 +239,66 @@ class MainFrame(wx.Frame):
                     title_msg = "节点无法连接"
             except Exception as e:
                 title_msg = repr(e)
-            # print(title_msg)
+            # log_manager.log(title_msg)
             self.updateDisplay(title_msg)
+            self.status_bar_write(get_random_verse())
             time.sleep(2)
 
     @call_after
     def updateDisplay(self, msg):
-        title = '桌面钱包 -- {} | {}              {}'.format(self.env, msg, get_random_verse())
+        title = '{} -- {} | {}'.format(self._BASIC_TITLE, self.current_chain, msg)
         self.SetTitle(title)
 
     # current chain set
-    def on_customize_env(self, event):
-        value = self.customizeChainText.GetValue()
-        print("on_customize_env: {}".format(value))
-        if value.startswith("ws"):
-            NODE_ADDRESSES[env[2]] = value
-        self.on_env(self.customizeCheck.GetLabel())
+    def on_customize_chain(self, event):
+        self.change_chain(chain_name=CUSTOMIZE_CHAIN)
 
-    def on_testnet_env(self, event):
-        self.on_env(self.testnetCheck.GetLabel())
+    def on_testnet_chain(self, event):
+        self.change_chain(chain_name=TESTNET_CHAIN)
 
-    def on_mainnet_env(self, event):
-        self.on_env(self.mainnetCheck.GetLabel())
+    def on_mainnet_chain(self, event):
+        self.change_chain(chain_name=MAINNET_CHAIN)
 
-    def on_env(self, value):
-        self.env = value
-        self.node_address = NODE_ADDRESSES[value]
-        print("on_customize_env: {} {}".format(self.env, self.node_address))
+    def change_chain(self, chain_name):
+        log_manager.log("change_chain event: {}-->{}".format(self.current_chain, chain_name))
+        if chain_name == CUSTOMIZE_CHAIN:
+            addresses = self.customizeChainText.GetValue().strip()
+            tokens = addresses.split(",")
+            if len(tokens) >= 1:
+                chain_address = tokens[0]
+                if chain_address.startswith("ws"):
+                    CHAIN_CONFIG[CUSTOMIZE_CHAIN]["address"] = chain_address
+                
+                if len(tokens) >= 2:
+                    faucet_url = tokens[1]
+                    if faucet_url.startswith("http"):
+                        FAUCET_CONFIG[CUSTOMIZE_CHAIN] = faucet_url
+        self.current_chain = chain_name
+        self.faucet_url = FAUCET_CONFIG[chain_name] + FAUCET_ROUTE
+        init_storage(chain_name) # init storage
+        self.init_sdk()
+        self.title_write('{} -- {}'.format(self._BASIC_TITLE, self.current_chain))
 
-        # global g_current_chain
-        # g_current_chain = self.env
-        init_storage(self.env) # init storage
-
-        self.initGraphene(self.node_address, value)
-        self.SetTitle('桌面钱包 -- {}'.format(value))
-
-    def create_chain_BoxSizer(self, parent):
+    def gen_chain_BoxSizer(self, parent):
         chain_staticBox = wx.StaticBox(parent, label=u'请选择您使用的链: ')
         chain_boxsizer = wx.StaticBoxSizer(chain_staticBox, wx.VERTICAL)
-        self.testnetCheck = wx.RadioButton(chain_staticBox, -1, env[1], style=wx.RB_GROUP) 
-        self.mainnetCheck = wx.RadioButton(chain_staticBox, -1, env[0]) 
-        self.customizeCheck = wx.RadioButton(chain_staticBox, -1, env[2]) 
-        self.customizeChainText = wx.TextCtrl(chain_staticBox, value=NODE_ADDRESSES[env[2]], size = (180, 20))
+        self.testnetCheck = wx.RadioButton(chain_staticBox, -1, TESTNET_CHAIN, style=wx.RB_GROUP) 
+        self.mainnetCheck = wx.RadioButton(chain_staticBox, -1, MAINNET_CHAIN) 
+        self.customizeCheck = wx.RadioButton(chain_staticBox, -1, CUSTOMIZE_CHAIN) 
 
-        self.customizeCheck.Bind(wx.EVT_RADIOBUTTON, self.on_customize_env) 
-        self.testnetCheck.Bind(wx.EVT_RADIOBUTTON, self.on_testnet_env) 
-        self.mainnetCheck.Bind(wx.EVT_RADIOBUTTON, self.on_mainnet_env) 
+        default = "{},{}".format(CHAIN_CONFIG[CUSTOMIZE_CHAIN]["address"], FAUCET_CONFIG[CUSTOMIZE_CHAIN])
+        self.customizeChainText = wx.TextCtrl(chain_staticBox, value=default, size=(180, 20))
 
-        chain_boxsizer.Add(self.mainnetCheck, proportion = 0,flag = wx.EXPAND|wx.ALL, border = 3)
-        chain_boxsizer.Add(self.testnetCheck, proportion = 0,flag = wx.EXPAND|wx.ALL, border = 3)
-        chain_boxsizer.Add(self.customizeCheck, proportion = 0,flag = wx.EXPAND|wx.ALL, border = 3)
-        chain_boxsizer.Add(self.customizeChainText, proportion = 0,flag = wx.EXPAND|wx.ALL, border = 3)
+        self.customizeCheck.Bind(wx.EVT_RADIOBUTTON, self.on_customize_chain) 
+        self.testnetCheck.Bind(wx.EVT_RADIOBUTTON, self.on_testnet_chain) 
+        self.mainnetCheck.Bind(wx.EVT_RADIOBUTTON, self.on_mainnet_chain) 
+
+        chain_boxsizer.Add(self.mainnetCheck, proportion=0, flag=wx.EXPAND|wx.ALL, border=3)
+        chain_boxsizer.Add(self.testnetCheck, proportion=0, flag=wx.EXPAND|wx.ALL, border=3)
+        chain_boxsizer.Add(self.customizeCheck, proportion=0,flag=wx.EXPAND|wx.ALL, border=3)
+        chain_boxsizer.Add(self.customizeChainText, proportion=0,flag=wx.EXPAND|wx.ALL, border=3)
         return chain_boxsizer
+
 
     def create_TreeCtrl(self, parent):
         tree = wx.TreeCtrl(parent)
@@ -198,26 +307,44 @@ class MainFrame(wx.Frame):
         img_list = wx.ImageList(16, 16, True, 3)
         img_list.Add(wx.ArtProvider.GetBitmap(wx.ART_FOLDER, size=wx.Size(16, 16)))
         # img_list.Add(wx.ArtProvider.GetBitmap(wx.ART_NORMAL_FILE, size=(16, 16)))
-        unchecked = wx.Icon('./icons/unchecked26px.ico', wx.BITMAP_TYPE_ICO) 
-        checked = wx.Icon('./icons/checked26px.ico', wx.BITMAP_TYPE_ICO) 
+        # img_list.Add(wx.ArtProvider.GetBitmap(wx.ART_NORMAL_FILE, size=(16, 16)))
+        # unchecked = wx.Icon('./icons/unchecked26px.ico', wx.BITMAP_TYPE_ICO) 
+        # checked = wx.Icon('./icons/checked26px.ico', wx.BITMAP_TYPE_ICO) 
+        # img_list.Add(unchecked)
+        # img_list.Add(checked)
 
-        img_list.Add(unchecked)
-        img_list.Add(checked)
+        tree_img_data = (
+            ("unchecked", "unchecked26px.ico"),
+            ("checked", "checked26px.ico")
+        )
+        self._img_path = get_icons_dir()
+        log_manager.log("[info] os.name: {}, sys.platform: {}".format(os.name, sys.platform))
+        if os.name == "nt":
+            for item in tree_img_data:
+                target, name = item
+                img_list.Add(wx.Icon(os.path.join(self._img_path, name), wx.BITMAP_TYPE_ICO))
+        else:
+            img_list.Add(wx.ArtProvider.GetBitmap(wx.ART_NORMAL_FILE, size=(16, 16)))
+            img_list.Add(wx.ArtProvider.GetBitmap(wx.ART_NORMAL_FILE, size=(16, 16)))
         tree.AssignImageList(img_list)
 
         # create api tree
         root = tree.AddRoot(text=u"钱包命令", image=0, selImage=2)
+        # add api class
+        self.on_use_api_class = []
         for class_name in API_CLASS:
             api_class_obj = API_CLASS[class_name]
             if api_class_obj["enable"]:
                 item = tree.AppendItem(parent=root, text=class_name, image=0, selImage=2)
                 item_name = "api_class_item_" + class_name
                 setattr(self, item_name, item)
+                self.on_use_api_class.append(class_name)
         
+        # add api item
         for api_name in API_LIST:
             api_obj = API_LIST[api_name]
-            if api_obj["enable"]:
-                class_name = api_obj["class"]
+            class_name = api_obj["class"]
+            if api_obj["enable"] and class_name in self.on_use_api_class:
                 class_item_name = "api_class_item_" + class_name
                 class_item = getattr(self, class_item_name)
                 tree.AppendItem(parent=class_item, text=api_name, image=1, selImage=2)
@@ -226,6 +353,7 @@ class MainFrame(wx.Frame):
                 if len(api_obj["params"]) == 0:
                     API_EMPTY_PARAM.append(api_name)
 
+        # api class Expand or hide
         for class_name in API_CLASS:
             api_class_obj = API_CLASS[class_name]
             if api_class_obj["enable"]:
@@ -241,11 +369,12 @@ class MainFrame(wx.Frame):
         self.output_text.Clear()
         api_item = event.GetItem()
         item_name = self.tree.GetItemText(api_item).strip()
-        print(">>> api item name: {}".format(item_name))
+        log_manager.log(">>> api item name: {}".format(item_name))
         self.api_label.SetLabel(item_name)
         self.current_api_name = item_name
         result = self.wallet_tree_on_click_impl(item_name)
-        if len(result) > 0:
+        # print("result: {}, len: {}, type: {}".format(result, len(result), type(result)))
+        if result != '""':
             self.show_output_text(result)
 
     def gen_param_column(self, parent_panel, label_tip):
@@ -253,24 +382,37 @@ class MainFrame(wx.Frame):
         param_label = wx.StaticText(parent_panel, label=label_tip[0])
         boxsizer.Add(param_label, proportion=2, flag=wx.EXPAND|wx.ALL, border=3)
         param_input_text = wx.TextCtrl(parent_panel, value=label_tip[1])
-        boxsizer.Add(param_input_text, proportion=8, flag = wx.EXPAND|wx.ALL, border=3)
+        boxsizer.Add(param_input_text, proportion=8, flag=wx.EXPAND|wx.ALL, border=3)
         return boxsizer, param_input_text
+
+    def button_api_layout(self, is_hide=False):
+        if is_hide:
+            self.api_button_ok = wx.Button(self.panel_right, label='执行')
+            self.right_buttons_BoxSizer.Add(self.api_button_ok, flag=wx.ALIGN_RIGHT, border=3)
+        else:
+            self.right_boxsizer.Hide(self.right_buttons_BoxSizer)
 
     def param_columns_layout(self, api_name):
         # clear param BoxSizer
         self.right_boxsizer.Hide(self.right_param_BoxSizer)
+        # self.right_boxsizer.Hide(self.right_buttons_BoxSizer)
         self.right_boxsizer.Layout()
+
+
+        # if api_name not in API_CLASS:
+            # self.right_buttons_BoxSizer.Add(self.api_button_ok, flag=wx.ALIGN_RIGHT, border=3)
 
         if api_name in API_LIST:
             api_obj = API_LIST[api_name]
-            # print("params: {}".format(api_obj["params"]))
+            # log_manager.log("params: {}".format(api_obj["params"]))
             params = api_obj["params"]
             for i in range(0, len(params)):
                 column_text = "param{}_input_text".format(i+1)
                 boxsizer, input_text = self.gen_param_column(self.panel_right, params[i])
                 self.right_param_BoxSizer.Add(boxsizer, flag=wx.EXPAND|wx.ALL, border=3)
                 setattr(self, column_text, input_text)
-            self.right_boxsizer.Layout()
+            
+        self.right_boxsizer.Layout()
 
     def get_sdk_api(self, api_name):
         try:
@@ -284,7 +426,7 @@ class MainFrame(wx.Frame):
                 else:
                     sdk_func = getattr(self.gph.rpc, api_name)
         except Exception as e:
-            print("[ERROR]get func failed. api_name:{}. {}".format(api_name, repr(e)))
+            log_manager.log("[ERROR]get func failed. api_name:{}. {}".format(api_name, repr(e)))
             sdk_func = None
         return sdk_func
 
@@ -295,13 +437,14 @@ class MainFrame(wx.Frame):
         
         # Button bind event
         if api_name not in API_CLASS:
+            self.api_button_ok.SetLabel("执行")
             try:
                 try:
                     func_name = self.API_BUTTON_CLICK_EVENT_PREFIX_ + api_name
                     bind_func = getattr(self, func_name)
                 except Exception as e:
                     bind_func = self.api_button_on_click_default
-                    print("[WARN]bind use default. api_name: {}. {}".format(api_name, repr(e)))
+                    log_manager.log("[WARN]bind use default. api_name: {}. {}".format(api_name, repr(e)))
                 self.Bind(wx.EVT_BUTTON, bind_func, self.api_button_ok)
 
                 if api_name in API_EMPTY_PARAM:
@@ -312,14 +455,16 @@ class MainFrame(wx.Frame):
             except Exception as e:
                 result = "run {} failed. {}".format(api_name, repr(e))
         else:
+            self.api_button_ok.SetLabel("彩蛋")
+            self.Bind(wx.EVT_BUTTON, self.func_egg, self.api_button_ok)
             result = API_CLASS[api_name]["desc"]
-            print("api_name: {}".format(api_name))
+            log_manager.log("api_name: {}".format(api_name))
 
         if api_name == u"钱包命令":
             try:
                 cherry_forever()
             except Exception as e:
-                print("cherry_forever exception: {}".format(repr(e)))
+                log_manager.log("cherry_forever exception: {}".format(repr(e)))
 
         try:
             result = json_dumps(result)
@@ -327,8 +472,12 @@ class MainFrame(wx.Frame):
             result = '{} exception. {}'.format(api_name, repr(e))
         return result
 
+    def func_egg(self, event):
+        text = get_random_verse()
+        self.show_output_text(text)
+
     def show_output_text(self, text, is_clear_text=True):
-        print("text: {}".format(text))
+        # log_manager.log("text: {}".format(text))
         if is_clear_text:
             self.output_text.Clear()
         self.output_text.AppendText(text+'\n')
@@ -347,11 +496,12 @@ class MainFrame(wx.Frame):
             input_text_obj_name = "param{}_input_text".format(i+1)
             input_text_obj = getattr(self, input_text_obj_name)
             value = input_text_obj.GetValue().strip()
-            print("input_text_obj_name: {}, value: {}", input_text_obj_name, value)
+            log_manager.log("input_text_obj_name: {}, value: {}".format(input_text_obj_name, value))
             args.append(value)
 
         sdk_func = self.get_sdk_api(api_name)
         if sdk_func:
+            text = ""
             try:
                 # sdk api args no support 变长参数
                 if size == 0:
@@ -391,7 +541,7 @@ class MainFrame(wx.Frame):
             brain_key = self.gph.suggest_key()
             owner_key = brain_key["owner_key"]
             brain_key_json = json_dumps(brain_key)
-            print(brain_key_json)
+            log_manager.log(brain_key_json)
             req_data = {
                 "account":{
                     "name": account_name,
@@ -515,7 +665,7 @@ class MainFrame(wx.Frame):
     def api_button_on_click_get_object(self, event):
         object_id = self.param1_input_text.GetValue()
         object_id = object_id.strip()
-        print("name: {}".format(object_id))
+        log_manager.log("name: {}".format(object_id))
         try:
             if len(object_id.split(".")) == 3:
                 text = self.gph.rpc.get_object(object_id)
@@ -573,7 +723,7 @@ class MainFrame(wx.Frame):
     ## account api event
     def api_button_on_click_get_account(self, event):
         name = self.param1_input_text.GetValue()
-        print("name: {}".format(name))
+        log_manager.log("name: {}".format(name))
         try:
             if len(name.split(".")) == 3:
                 text = self.gph.rpc.get_object(name)
@@ -615,7 +765,7 @@ class MainFrame(wx.Frame):
 
     def api_button_on_click_account_balances(self, event):
         name = self.param1_input_text.GetValue()
-        print("name: {}".format(name))
+        log_manager.log("name: {}".format(name))
         try:
             account = Account(name)
             text = []
@@ -664,7 +814,7 @@ class MainFrame(wx.Frame):
     def api_button_on_click_get_asset(self, event):
         asset_symbol_or_id = self.param1_input_text.GetValue().strip()
         # asset_symbol_or_id = self.params_input[0].GetValue().strip()
-        print("name: {}".format(asset_symbol_or_id))
+        log_manager.log("name: {}".format(asset_symbol_or_id))
         try:
             text = json_dumps(self.gph.rpc.get_asset(asset_symbol_or_id))
         except Exception as e:
@@ -674,13 +824,13 @@ class MainFrame(wx.Frame):
     ## contract api
     def api_button_on_click_get_contract(self, event):
         name_or_id = self.param1_input_text.GetValue().strip()
-        print("name: {}".format(name_or_id))
+        log_manager.log("name: {}".format(name_or_id))
         try:
-            # if len(name_or_id.split(".")) == 3:
-            #     text = self.gph.rpc.get_object(name_or_id)
-            # else:
-            contract = Contract(name_or_id)
-            text = contract.contracts_cache[name_or_id]
+            if name_or_id.startswith("1.16."):
+                text = self.gph.rpc.get_object(name_or_id)
+            else:
+                contract = Contract(name_or_id)
+                text = contract.contracts_cache[name_or_id]
             text = json_dumps(text)
         except Exception as e:
             text = "执行失败, {}".format(repr(e))
