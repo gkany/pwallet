@@ -277,7 +277,7 @@ class MainFrame(wx.Frame):
         self.faucet_url = FAUCET_CONFIG[chain_name] + FAUCET_ROUTE
         init_storage(chain_name) # init storage
         self.init_sdk()
-        self.title_write('{} -- {}'.format(self._BASIC_TITLE, self.chain_name))
+        self.title_write('{} -- {}'.format(self._BASIC_TITLE, self.current_chain))
 
     def gen_chain_BoxSizer(self, parent):
         chain_staticBox = wx.StaticBox(parent, label=u'请选择您使用的链: ')
