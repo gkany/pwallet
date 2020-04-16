@@ -940,6 +940,19 @@ API_LIST = {
         "enable": True,
         "sdk_name": [],
         "desc": ""
+    },
+    "get_signature_keys": {
+        "name": "get_signature_keys",
+        "class": "transaction",
+        "params": [
+            [
+                "transaction",
+                ""
+            ]
+        ],
+        "enable": True,
+        "sdk_name": [],
+        "desc": ""
     }
 }
 

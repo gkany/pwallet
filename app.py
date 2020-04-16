@@ -385,10 +385,22 @@ class MainFrame(wx.Frame):
         boxsizer.Add(param_input_text, proportion=8, flag=wx.EXPAND|wx.ALL, border=3)
         return boxsizer, param_input_text
 
+    def button_api_layout(self, is_hide=False):
+        if is_hide:
+            self.api_button_ok = wx.Button(self.panel_right, label='执行')
+            self.right_buttons_BoxSizer.Add(self.api_button_ok, flag=wx.ALIGN_RIGHT, border=3)
+        else:
+            self.right_boxsizer.Hide(self.right_buttons_BoxSizer)
+
     def param_columns_layout(self, api_name):
         # clear param BoxSizer
         self.right_boxsizer.Hide(self.right_param_BoxSizer)
+        # self.right_boxsizer.Hide(self.right_buttons_BoxSizer)
         self.right_boxsizer.Layout()
+
+
+        # if api_name not in API_CLASS:
+            # self.right_buttons_BoxSizer.Add(self.api_button_ok, flag=wx.ALIGN_RIGHT, border=3)
 
         if api_name in API_LIST:
             api_obj = API_LIST[api_name]
@@ -399,7 +411,8 @@ class MainFrame(wx.Frame):
                 boxsizer, input_text = self.gen_param_column(self.panel_right, params[i])
                 self.right_param_BoxSizer.Add(boxsizer, flag=wx.EXPAND|wx.ALL, border=3)
                 setattr(self, column_text, input_text)
-            self.right_boxsizer.Layout()
+            
+        self.right_boxsizer.Layout()
 
     def get_sdk_api(self, api_name):
         try:
@@ -424,6 +437,7 @@ class MainFrame(wx.Frame):
         
         # Button bind event
         if api_name not in API_CLASS:
+            self.api_button_ok.SetLabel("执行")
             try:
                 try:
                     func_name = self.API_BUTTON_CLICK_EVENT_PREFIX_ + api_name
@@ -441,6 +455,8 @@ class MainFrame(wx.Frame):
             except Exception as e:
                 result = "run {} failed. {}".format(api_name, repr(e))
         else:
+            self.api_button_ok.SetLabel("彩蛋")
+            self.Bind(wx.EVT_BUTTON, self.func_egg, self.api_button_ok)
             result = API_CLASS[api_name]["desc"]
             log_manager.log("api_name: {}".format(api_name))
 
@@ -455,6 +471,10 @@ class MainFrame(wx.Frame):
         except Exception as e:
             result = '{} exception. {}'.format(api_name, repr(e))
         return result
+
+    def func_egg(self, event):
+        text = get_random_verse()
+        self.show_output_text(text)
 
     def show_output_text(self, text, is_clear_text=True):
         # log_manager.log("text: {}".format(text))
