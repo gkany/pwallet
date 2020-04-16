@@ -37,7 +37,7 @@ def call_after(func):
 log_manager = LogManager(config_path="./", add_time=True)
 
 class WalletTaskBarICON(wx.adv.TaskBarIcon):
-    def __init__(self, title=__appname__, frame):
+    def __init__(self, frame, title=__appname__, ):
         wx.adv.TaskBarIcon.__init__(self)
         self._title = title
         self.MainFrame = frame
@@ -76,6 +76,17 @@ class WalletTaskBarICON(wx.adv.TaskBarIcon):
             self.MainFrame.Show(True)
         self.MainFrame.Raise()
 
+def screen_show():
+    pass
+    ## welcome screen 
+    # bmp = wx.Image(get_icon_file()).ConvertToBitmap()
+    # wx.SplashScreen(bmp,
+    #                 wx.SPLASH_CENTER_ON_SCREEN | wx.SPLASH_TIMEOUT,
+    #                 1000,
+    #                 None,
+    #                 -1)
+    # wx.Yield()
+
 class MainFrame(wx.Frame):
 
     _FRAMES_MIN_SIZE = (900, 600)
@@ -85,13 +96,10 @@ class MainFrame(wx.Frame):
     def __init__(self, *args, **kwargs):
         super(MainFrame, self).__init__(*args, **kwargs)
 
-        # create a welcome screen  
-        # screen = wx.Image(self.screenIm).ConvertToBitmap()  
-        # wx.SplashScreen(screen, wx.SPLASH_CENTRE_ON_SCREEN | wx.SPLASH_TIMEOUT,1000, None, -1)  
-        # wx.Yield()  
+        # screen_show()
 
         # Set taskBarIcon
-        self.taskbar_icon = WalletTaskBarICON(title=self._BASIC_TITLE, frame=self)
+        self.taskbar_icon = WalletTaskBarICON(frame=self, title=self._BASIC_TITLE)
 
         #default testnet
         self.current_chain = TESTNET_CHAIN 
