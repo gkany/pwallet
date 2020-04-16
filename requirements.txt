@@ -9,3 +9,5 @@ Events==0.3
 scrypt==0.8.6
 pycrypto==2.6.1 
 
+wxPython
+turtle
