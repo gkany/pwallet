@@ -26,8 +26,8 @@ from info import (
 from logmanager import LogManager
 
 
-def json_dumps(json_data):
-    return json.dumps(json_data, indent=4)
+def json_dumps(json_data, indent=4):
+    return json.dumps(json_data, indent=indent)
 
 def call_after(func):
     def _wrapper(*args, **kwargs):
@@ -112,18 +112,14 @@ class MainFrame(wx.Frame):
         self.layout_mainframe()
 
     def _on_close(self, event):
-        if APP_CONFIRM_EXIT:
-            dlg = wx.MessageDialog(self, "Are you sure you want to exit?", "Exit", wx.YES_NO | wx.ICON_QUESTION)
-            result = dlg.ShowModal() == wx.ID_YES
-            dlg.Destroy()
-        else:
-            result = True
-
-        if result:
-            self.close()
+        self._window_hide_flag = False
+        dlg = wx.MessageDialog(self, "是否隐藏到状态盘？(状态盘双击打开)", "退出", wx.YES_NO | wx.ICON_QUESTION)
+        self._window_hide_flag = dlg.ShowModal() == wx.ID_YES
+        dlg.Destroy()
+        self.close()
 
     def close(self):
-        if FRAME_CLOSE_HIDE:
+        if self._window_hide_flag:
             self.Hide()
         else:
             # self.taskbar_icon.on_exit(wx.EVT_MENU)
@@ -447,7 +443,7 @@ class MainFrame(wx.Frame):
                     log_manager.log("[WARN]bind use default. api_name: {}. {}".format(api_name, repr(e)))
                 self.Bind(wx.EVT_BUTTON, bind_func, self.api_button_ok)
 
-                if api_name in API_EMPTY_PARAM:
+                if api_name in API_EMPTY_PARAM and api_name not in API_NOT_RUN_ON_CHANGE:
                     result = self.get_sdk_api(api_name)() # 不做判断，错误信息抛出
                     # sdk_func = self.get_sdk_api(api_name)
                     # if sdk_func:
@@ -559,6 +555,24 @@ class MainFrame(wx.Frame):
             text = json_dumps(text)
         except Exception as e:
             text = repr(e)
+        self.show_output_text(text)
+
+    def api_button_on_click_JSON_Format(self, event):
+        json_text = self.output_text.GetValue().strip()
+        button_label = self.api_button_ok.GetLabel()
+        text = ""
+        new_label = "执行"
+        try: 
+            json_obj = json.loads(json_text)
+            if button_label == "执行":
+                new_label = "压缩"
+                text = json_dumps(json_obj)
+            elif button_label == "压缩":
+                text = json_dumps(json_obj, indent=None)
+                text = text.replace("\\", "")
+        except Exception as e:
+            text = "{}\n error: {}".format(json_text, repr(e))
+        self.api_button_ok.SetLabel(new_label)
         self.show_output_text(text)
 
     ## wallet

@@ -1,6 +1,3 @@
-APP_CONFIRM_EXIT = False
-FRAME_CLOSE_HIDE = True
-
 MAINNET_CHAIN = "mainnet"
 TESTNET_CHAIN = "testnet"
 CUSTOMIZE_CHAIN = "customize"
@@ -25,7 +22,7 @@ CHAIN_CONFIG = {
 
 FAUCET_ROUTE = "/api/v1/accounts"
 FAUCET_CONFIG = {
-    MAINNET_CHAIN: "https://api-faucet.cocosbcx.net",
+    MAINNET_CHAIN: "https://faucet.cocosbcx.net",
     TESTNET_CHAIN: "https://test-faucet.cocosbcx.net", 
     CUSTOMIZE_CHAIN: "http://127.0.0.1:8041"
 }
@@ -47,11 +44,11 @@ API_CLASS:
     }
 '''
 API_CLASS = {
-    "faucet": {
-        "name": "faucet",
+    "tools": {
+        "name": "tools",
         "enable": True,
         "isExpand": True,
-        "desc": "faucet"
+        "desc": "tools"
     },
     "wallet": {
         "name": "wallet",
@@ -104,6 +101,7 @@ API_CLASS = {
 }
 
 API_EMPTY_PARAM = []
+API_NOT_RUN_ON_CHANGE = ["JSON_Format"]
 
 '''
 API_LIST:
@@ -119,13 +117,21 @@ API_LIST:
 API_LIST = {
     "faucet_register_account": {
         "name": "faucet_register_account",
-        "class": "faucet",
+        "class": "tools",
         "params": [
             [
                 "new account name",
                 ""
             ]
         ],
+        "enable": True,
+        "sdk_name": [],
+        "desc": ""
+    },
+    "JSON_Format": {
+        "name": "JSON_Format",
+        "class": "tools",
+        "params": [],
         "enable": True,
         "sdk_name": [],
         "desc": ""
