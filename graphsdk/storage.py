@@ -110,7 +110,7 @@ class Key(DataDir):
     __tablename__ = 'wallet_keys'
 
     def __init__(self):
-        print("[Key][__init__] current chain: {}".format(current_chain["name"]))
+        # print("[Key][__init__] current chain: {}".format(current_chain["name"]))
         super(Key, self).__init__()
 
     def exists_table(self):
@@ -119,7 +119,7 @@ class Key(DataDir):
         query = ("SELECT name FROM sqlite_master " +
                  "WHERE type='table' AND name=?",
                  (self.__tablename__, ))
-        print("[key] exists_table, query: {}".format(query))
+        # print("[key] exists_table, query: {}".format(query))
         connection = sqlite3.connect(self.sqlDataBaseFile)
         cursor = connection.cursor()
         cursor.execute(*query)
@@ -138,15 +138,19 @@ class Key(DataDir):
         cursor = connection.cursor()
         cursor.execute(query)
         connection.commit()
+        # print("exists_table: {}".format(self.exists_table()))
 
     def getPublicKeys(self):
         """ Returns the public keys stored in the database
         """
-        query = ("SELECT pub from %s WHERE chain = %s" % (self.__tablename__, current_chain["name"]))
+        query = ("SELECT pub from %s WHERE chain = '%s'" % (self.__tablename__, current_chain["name"]))
+        # print("[getPublicKeys] query sql: {}".format(query))
+        # print("sqlDataBaseFile: {}".format(self.sqlDataBaseFile))
         connection = sqlite3.connect(self.sqlDataBaseFile)
         cursor = connection.cursor()
         cursor.execute(query)
         results = cursor.fetchall()
+        # print("results: {}".format(results))
         return [x[0] for x in results]
 
     def getPrivateKeyForPublicKey(self, pub):
@@ -247,7 +251,7 @@ class Configuration(DataDir):
         query = ("SELECT name FROM sqlite_master " +
                  "WHERE type='table' AND name=?",
                  (self.__tablename__, ))
-        print("[Configuration] exists_table, query: {}".format(query))
+        # print("[Configuration] exists_table, query: {}".format(query))
         connection = sqlite3.connect(self.sqlDataBaseFile)
         cursor = connection.cursor()
         cursor.execute(*query)
@@ -272,7 +276,7 @@ class Configuration(DataDir):
         """
         if ("lastBackup" not in configStorage or
                 configStorage["lastBackup"] == ""):
-            print("No backup has been created yet!")
+            # print("No backup has been created yet!")
             self.refreshBackup()
         try:
             if (
@@ -280,7 +284,7 @@ class Configuration(DataDir):
                 datetime.strptime(configStorage["lastBackup"],
                                   timeformat)
             ).days > 7:
-                print("Backups older than 7 days!")
+                # print("Backups older than 7 days!")
                 self.refreshBackup()
         except:
             self.refreshBackup()
@@ -473,14 +477,18 @@ keyStorage = Key()
 configStorage = Configuration()
 
 # Create Tables if database is brand new
-print("Configuration.exists_table before")
+# print("Configuration.exists_table before")
 if not configStorage.exists_table():
-    print("Configuration.exists_table not")
+    # print("Configuration.exists_table not")
     configStorage.create_table()
 
+# print("configStorage.exists_table: {}".format(configStorage.exists_table()))
+
 newKeyStorage = False
-print("keyStorage.exists_table not")
+# print("keyStorage.exists_table not")
 if not keyStorage.exists_table():
-    print("keyStorage.exists_table not")
+    # print("keyStorage.exists_table not")
     newKeyStorage = True
     keyStorage.create_table()
+
+# print("keyStorage.exists_table: {}".format(keyStorage.exists_table()))

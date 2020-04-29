@@ -225,18 +225,21 @@ class MainFrame(wx.Frame):
                     head_block_number = info['head_block_number']
                     block_msg = "区块高度：{}".format(head_block_number)
 
-                    wallet_status = self.gph.wallet.created()
-                    # log_manager.log("wallet_status: {}".format(wallet_status))
-                    if wallet_status:
-                        locked_status = self.gph.wallet.locked()
-                        if locked_status:
-                            title_msg = "{} | 钱包已锁定".format(block_msg)
+                    if self.gph.wallet:
+                        wallet_status = self.gph.wallet.created()
+                        # log_manager.log("wallet_status: {}".format(wallet_status))
+                        if wallet_status:
+                            locked_status = self.gph.wallet.locked()
+                            if locked_status:
+                                title_msg = "{} | 钱包已锁定".format(block_msg)
+                            else:
+                                title_msg = "{} | 钱包已解锁".format(block_msg)
                         else:
-                            title_msg = "{} | 钱包已解锁".format(block_msg)
+                            title_msg = "{} | 钱包未创建".format(block_msg)
                     else:
-                        title_msg = "{} | 钱包未创建".format(block_msg)
+                        title_msg = "钱包初始化失败"
                 else:
-                    title_msg = "节点无法连接"
+                    title_msg = "sdk 初始化失败"
             except Exception as e:
                 title_msg = repr(e)
             # log_manager.log(title_msg)

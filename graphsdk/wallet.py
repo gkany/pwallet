@@ -3,6 +3,7 @@ import os
 
 from graphsdkbase import bip38
 from graphsdkbase.account import PrivateKey, GPHPrivateKey
+from graphsdkbase.chains import default_prefix
 
 from .account import Account
 from .exceptions import (
@@ -46,8 +47,9 @@ class Wallet():
 
     # Keys from database
     configStorage = None
-    MasterPassword = None
     keyStorage = None
+
+    MasterPassword = None  # class MasterPassword
 
     # Manually provided keys
     keys = {}  # struct with pubkey as key and wif as value
@@ -57,16 +59,20 @@ class Wallet():
         from .storage import configStorage
         self.configStorage = configStorage
 
-        # RPC
-        Wallet.rpc = rpc
+        # print("self.configStorage[prefix]: {}".format(self.configStorage["prefix"]))
 
-        # Prefix?
+        # RPC  GrapheneNodeRPC object
+        Wallet.rpc = rpc  
+
+        # Wallet.rpc not None: already connect, use rpc--prefix; None: not connected, use default_prefix
         if Wallet.rpc:
             self.prefix = Wallet.rpc.chain_params["prefix"]
         else:
-            # If not connected, load prefix from config
-            self.prefix = self.configStorage["prefix"]
+            self.prefix = default_prefix
+        # print("wallet.rpc: {}".format(Wallet.rpc))
+        # print("wallet.rpc chain params: {}".format(Wallet.rpc.chain_params))
 
+        # print("kwargs: {}".format(kwargs))
         # Compatibility after name change from wif->keys
         if "wif" in kwargs and "keys" not in kwargs:
             kwargs["keys"] = kwargs["wif"]
@@ -77,10 +83,10 @@ class Wallet():
             """ If no keys are provided manually we load the SQLite
                 keyStorage
             """
-            from .storage import (keyStorage,
-                                  MasterPassword)
-            self.MasterPassword = MasterPassword
-            self.keyStorage = keyStorage
+            print("[info] load SQLite keyStorage")
+            from .storage import (keyStorage, MasterPassword)
+            self.MasterPassword = MasterPassword  #class MasterPassword, type: class
+            self.keyStorage = keyStorage  # class Key instance object, type: Key
 
     def setKeys(self, loadkeys):
         """ This method is strictly only for in memory keys that are
@@ -144,6 +150,8 @@ class Wallet():
     def created(self):
         """ Do we have a wallet database already?
         """
+        # print("wallet.created: config_key: {}, configStorage: {}".format(
+        #     self.MasterPassword.config_key, self.configStorage))
         if len(self.getPublicKeys()):
             # Already keys installed
             return True
@@ -346,6 +354,7 @@ class Wallet():
     def getPublicKeys(self):
         """ Return all installed public keys
         """
+        # print("keyStorage: {}, keys: {}".format(self.keyStorage, Wallet.keys.keys()))
         if self.keyStorage:
             return self.keyStorage.getPublicKeys()
         else:
