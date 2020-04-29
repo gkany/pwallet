@@ -15,8 +15,7 @@ from .committee import Committee
 from .vesting import Vesting
 from .worker import Worker
 from .contract import Contract
-from .storageglobal import configStorage as config
-
+from .storage import configStorage as config
 from .extensions import extensions as Extensions, getExtensionObjectFromString
 from .exceptions import (
     AccountExistsException,

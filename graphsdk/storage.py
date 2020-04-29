@@ -10,8 +10,7 @@ from binascii import hexlify
 import random
 import hashlib
 from .exceptions import WrongMasterPasswordException
-from .storageglobal import *
-
+from graphsdkbase.chains import current_chain
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
 log.addHandler(logging.StreamHandler())
@@ -40,7 +39,7 @@ class DataDir(object):
          in the `backups/` directory every now and then.
     """
     appname = "pWallet"
-    appauthor = "antilopes"
+    appauthor = "GKAny"
     storageDatabase = "pWallet.sqlite"
 
     data_dir = user_data_dir(appname, appauthor)
@@ -108,9 +107,10 @@ class Key(DataDir):
         (possibly encrypted) private key in the `keys` table in the
         SQLite3 database.
     """
-    __tablename__ = 'keys'
+    __tablename__ = 'wallet_keys'
 
     def __init__(self):
+        print("[Key][__init__] current chain: {}".format(current_chain["name"]))
         super(Key, self).__init__()
 
     def exists_table(self):
@@ -119,6 +119,7 @@ class Key(DataDir):
         query = ("SELECT name FROM sqlite_master " +
                  "WHERE type='table' AND name=?",
                  (self.__tablename__, ))
+        print("[key] exists_table, query: {}".format(query))
         connection = sqlite3.connect(self.sqlDataBaseFile)
         cursor = connection.cursor()
         cursor.execute(*query)
@@ -131,7 +132,7 @@ class Key(DataDir):
                  'id INTEGER PRIMARY KEY AUTOINCREMENT,' +
                  'pub STRING(256),' +
                  'wif STRING(256),' +
-                 'chain STRING(256)' +
+                 'chain STRING(32)' +
                  ')')
         connection = sqlite3.connect(self.sqlDataBaseFile)
         cursor = connection.cursor()
@@ -141,7 +142,7 @@ class Key(DataDir):
     def getPublicKeys(self):
         """ Returns the public keys stored in the database
         """
-        query = ("SELECT pub from %s " % (self.__tablename__))
+        query = ("SELECT pub from %s WHERE chain = %s" % (self.__tablename__, current_chain["name"]))
         connection = sqlite3.connect(self.sqlDataBaseFile)
         cursor = connection.cursor()
         cursor.execute(query)
@@ -156,10 +157,9 @@ class Key(DataDir):
 
            The encryption scheme is BIP38
         """
-        global g_current_chain
         query = ("SELECT wif from %s " % (self.__tablename__) +
-                 "WHERE pub=? AND chain=?",
-                 (pub, g_current_chain))
+                 "WHERE pub=? AND chain=? ",
+                 (pub, current_chain["name"]))
         connection = sqlite3.connect(self.sqlDataBaseFile)
         cursor = connection.cursor()
         cursor.execute(*query)
@@ -175,10 +175,9 @@ class Key(DataDir):
            :param str pub: Public key
            :param str wif: Private key
         """
-        global g_current_chain
         query = ("UPDATE %s " % self.__tablename__ +
                  "SET wif=? WHERE pub=? AND chain=?",
-                 (wif, pub, g_current_chain))
+                 (wif, pub, current_chain["name"]))
         connection = sqlite3.connect(self.sqlDataBaseFile)
         cursor = connection.cursor()
         cursor.execute(*query)
@@ -191,12 +190,11 @@ class Key(DataDir):
            :param str pub: Public key
            :param str wif: Private key
         """
-        global g_current_chain
         if self.getPrivateKeyForPublicKey(pub):
             raise ValueError("Key already in storage")
         query = ('INSERT INTO %s (pub, wif, chain) ' % self.__tablename__ +
                  'VALUES (?, ?, ?)',
-                 (pub, wif, g_current_chain))
+                 (pub, wif, current_chain["name"]))
         connection = sqlite3.connect(self.sqlDataBaseFile)
         cursor = connection.cursor()
         cursor.execute(*query)
@@ -207,30 +205,30 @@ class Key(DataDir):
 
            :param str pub: Public key
         """
-        global g_current_chain
         query = ("DELETE FROM %s " % (self.__tablename__) +
-                 "WHERE pub=? AND chain=?", (pub, g_current_chain))
+                 "WHERE pub=? AND chain=?",
+                 (pub, current_chain["name"]))
         connection = sqlite3.connect(self.sqlDataBaseFile)
         cursor = connection.cursor()
         cursor.execute(*query)
         connection.commit()
 
     def wipe(self):
-        global g_current_chain
         query = ("DELETE FROM %s " % (self.__tablename__) + 
-            "WHERE chain=?", (g_current_chain))
+                "WHERE chain=?",
+                (current_chain["name"]))
         connection = sqlite3.connect(self.sqlDataBaseFile)
         cursor = connection.cursor()
         cursor.execute(query)
         connection.commit()
-        return "current_chain {} wallet wipe ok!".format(g_current_chain)
+        return "wallet wipe ok!"
 
 
 class Configuration(DataDir):
     """ This is the configuration storage that stores key/value
         pairs in the `config` table of the SQLite3 database.
     """
-    __tablename__ = "config"
+    __tablename__ = "wallet_config"
 
     #: Default configuration
     config_defaults = {
@@ -246,10 +244,10 @@ class Configuration(DataDir):
     def exists_table(self):
         """ Check if the database table exists
         """
-        global g_current_chain
         query = ("SELECT name FROM sqlite_master " +
                  "WHERE type='table' AND name=?",
                  (self.__tablename__, ))
+        print("[Configuration] exists_table, query: {}".format(query))
         connection = sqlite3.connect(self.sqlDataBaseFile)
         cursor = connection.cursor()
         cursor.execute(*query)
@@ -262,7 +260,7 @@ class Configuration(DataDir):
                  'id INTEGER PRIMARY KEY AUTOINCREMENT,' +
                  'key STRING(256),' +
                  'value STRING(256),' +
-                 'chain STRING(256)' 
+                 'chain STRING(32)' +
                  ')')
         connection = sqlite3.connect(self.sqlDataBaseFile)
         cursor = connection.cursor()
@@ -290,10 +288,9 @@ class Configuration(DataDir):
     def _haveKey(self, key):
         """ Is the key `key` available int he configuration?
         """
-        global g_current_chain
         query = ("SELECT value FROM %s " % (self.__tablename__) +
                  "WHERE key=? AND chain=?",
-                 (key, g_current_chain)
+                 (key, current_chain["name"])
                  )
         connection = sqlite3.connect(self.sqlDataBaseFile)
         cursor = connection.cursor()
@@ -306,7 +303,7 @@ class Configuration(DataDir):
         """
         query = ("SELECT value FROM %s " % (self.__tablename__) +
                  "WHERE key=? AND chain=?",
-                 (key, g_current_chain)
+                 (key, current_chain["name"])
                  )
         connection = sqlite3.connect(self.sqlDataBaseFile)
         cursor = connection.cursor()
@@ -335,27 +332,25 @@ class Configuration(DataDir):
             return False
 
     def __setitem__(self, key, value):
-        global g_current_chain
         if self._haveKey(key):
             query = ("UPDATE %s " % self.__tablename__ +
                      "SET value=? WHERE key=? AND chain=?",
-                     (value, key, g_current_chain))
+                     (value, key, current_chain["name"]))
         else:
             query = ("INSERT INTO %s " % self.__tablename__ +
                      "(key, value, chain) VALUES (?, ?, ?)",
-                     (key, value, g_current_chain))
+                     (key, value, current_chain["name"]))
         connection = sqlite3.connect(self.sqlDataBaseFile)
         cursor = connection.cursor()
         cursor.execute(*query)
         connection.commit()
 
     def delete(self, key):
-        global g_current_chain
         """ Delete a key from the configuration store
         """
         query = ("DELETE FROM %s " % (self.__tablename__) +
                  "WHERE key=? AND chain=?",
-                 (key, g_current_chain))
+                 (key, current_chain["name"]))
         connection = sqlite3.connect(self.sqlDataBaseFile)
         cursor = connection.cursor()
         cursor.execute(*query)
@@ -365,10 +360,9 @@ class Configuration(DataDir):
         return iter(self.items())
 
     def items(self):
-        global g_current_chain
         query = ("SELECT key, value from %s " % (self.__tablename__) + 
-                "WHERE chain=?", (g_current_chain)
-        )
+                 "WHERE chain=?",
+                 (current_chain["name"]))
         connection = sqlite3.connect(self.sqlDataBaseFile)
         cursor = connection.cursor()
         cursor.execute(query)
@@ -379,8 +373,8 @@ class Configuration(DataDir):
 
     def __len__(self):
         query = ("SELECT id from %s " % (self.__tablename__) + 
-                "WHERE chain=?", (g_current_chain)
-        )
+                 "WHERE chain=?",
+                 (current_chain["name"]))
         connection = sqlite3.connect(self.sqlDataBaseFile)
         cursor = connection.cursor()
         cursor.execute(query)
@@ -474,31 +468,19 @@ class MasterPassword(object):
         """
         configStorage[self.config_key] = ""
 
+# Create keyStorage
+keyStorage = Key()
+configStorage = Configuration()
 
-# # Create keyStorage
-# keyStorage = Key()
-# configStorage = Configuration()
+# Create Tables if database is brand new
+print("Configuration.exists_table before")
+if not configStorage.exists_table():
+    print("Configuration.exists_table not")
+    configStorage.create_table()
 
-# # Create Tables if database is brand new
-# if not configStorage.exists_table():
-#     configStorage.create_table()
-
-# newKeyStorage = False
-# if not keyStorage.exists_table():
-#     newKeyStorage = True
-#     keyStorage.create_table()
-
-def init_storage(current_chain="testnet"):
-    global keyStorage, configStorage, newKeyStorage, g_current_chain
-    chain_msg = "g_current_chain: {} -->".format(g_current_chain)
-    g_current_chain = current_chain
-    print("[init_storage] {} {}, [param] current_chain: {}".format(chain_msg, g_current_chain, current_chain))
-    keyStorage = Key()
-    configStorage = Configuration()
-    # Create Tables if database is brand new
-    if not configStorage.exists_table():
-        configStorage.create_table()
-
-    if not keyStorage.exists_table():
-        newKeyStorage = True
-        keyStorage.create_table()
+newKeyStorage = False
+print("keyStorage.exists_table not")
+if not keyStorage.exists_table():
+    print("keyStorage.exists_table not")
+    newKeyStorage = True
+    keyStorage.create_table()

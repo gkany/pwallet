@@ -64,4 +64,5 @@
 * 打包成可安装文件
 
 
-
+nohup python3 check.py 133730 4232128 >> logs/check_nohup.log 2>&1 &
+                       134343

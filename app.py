@@ -13,8 +13,10 @@ from graphsdk.graphene import Graphene, ping
 from graphsdk.account import Account
 from graphsdk.contract import Contract
 from graphsdk.instance import set_shared_graphene_instance
-from graphsdk.storage import init_storage
+# from graphsdk.storage import init_storage
 from eggs import cherry_forever, get_random_verse
+
+from graphsdkbase.chains import current_chain, known_chains
 
 from config import *
 from utils import *
@@ -135,7 +137,9 @@ class MainFrame(wx.Frame):
     def init_sdk(self):
         chain = CHAIN_CONFIG[self.current_chain]
         log_manager.log("init sdk. current chain: {}".format(chain))
-        init_storage(self.current_chain) # init storage
+        current_chain = known_chains[chain["name"]]
+        print("current chain: {}".format(current_chain))
+        # init_storage(self.current_chain) # init storage
         if ping(node=chain["address"], num_retries=1):
             self.gph = Graphene(node=chain["address"], num_retries=1, current_chain=self.current_chain) 
             set_shared_graphene_instance(self.gph)
@@ -271,8 +275,9 @@ class MainFrame(wx.Frame):
                         FAUCET_CONFIG[CUSTOMIZE_CHAIN] = faucet_url
         self.current_chain = chain_name
         self.faucet_url = FAUCET_CONFIG[chain_name] + FAUCET_ROUTE
-        init_storage(chain_name) # init storage
+        # init_storage(chain_name) # init storage
         self.init_sdk()
+        print("self.current_chain: {}".format(self.current_chain))
         self.title_write('{} -- {}'.format(self._BASIC_TITLE, self.current_chain))
 
     def gen_chain_BoxSizer(self, parent):
@@ -619,6 +624,7 @@ class MainFrame(wx.Frame):
 
     def api_button_on_click_import_key(self, event):
         private_key = self.param1_input_text.GetValue().strip()
+        log_manager.log("key: {}".format(private_key))        
         try:
             self.gph.wallet.addPrivateKey(private_key)
             text = "导入私钥成功!"
@@ -626,14 +632,14 @@ class MainFrame(wx.Frame):
             text = "导入私钥失败, {}".format(repr(e))
         self.show_output_text(text)
 
-    def api_button_on_click_import_key(self, event):
-        private_key = self.param1_input_text.GetValue().strip()
-        try:
-            self.gph.wallet.addPrivateKey(private_key)
-            text = "导入私钥成功!"
-        except Exception as e:
-            text = "导入私钥失败, {}".format(repr(e))
-        self.show_output_text(text)
+    # def api_button_on_click_import_key(self, event):
+    #     private_key = self.param1_input_text.GetValue().strip()
+    #     try:
+    #         self.gph.wallet.addPrivateKey(private_key)
+    #         text = "导入私钥成功!"
+    #     except Exception as e:
+    #         text = "导入私钥失败, {}".format(repr(e))
+    #     self.show_output_text(text)
 
     def api_button_on_click_getAccounts(self, event):
         try:
