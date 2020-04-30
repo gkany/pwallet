@@ -39,7 +39,7 @@ class DataDir(object):
          in the `backups/` directory every now and then.
     """
     appname = "pWallet"
-    appauthor = "GKAny"
+    appauthor = "gkany"
     storageDatabase = "pWallet.sqlite"
 
     data_dir = user_data_dir(appname, appauthor)

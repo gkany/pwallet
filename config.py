@@ -142,7 +142,7 @@ API_LIST = {
         "params": [
             [
                 "wallet password",
-                ""
+                "123456"
             ]
         ],
         "enable": True,
@@ -163,7 +163,7 @@ API_LIST = {
         "params": [
             [
                 "password",
-                ""
+                "123456"
             ]
         ],
         "enable": True,
@@ -176,7 +176,7 @@ API_LIST = {
         "params": [
             [
                 "new_password",
-                ""
+                "123456"
             ]
         ],
         "enable": True,

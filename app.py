@@ -13,6 +13,7 @@ from graphsdk.graphene import Graphene, ping
 from graphsdk.account import Account
 from graphsdk.contract import Contract
 from graphsdk.instance import set_shared_graphene_instance
+from graphsdk.notify import Notify
 # from graphsdk.storage import init_storage
 from eggs import cherry_forever, get_random_verse
 
@@ -26,6 +27,7 @@ from info import (
     __description__
 )
 from logmanager import LogManager
+
 
 
 def json_dumps(json_data, indent=4):
@@ -90,27 +92,20 @@ def screen_show():
     # wx.Yield()
 
 class MainFrame(wx.Frame):
-
     _FRAMES_MIN_SIZE = (900, 600)
     _BASIC_TITLE = "桌面钱包"
     API_BUTTON_CLICK_EVENT_PREFIX_ = "api_button_on_click_"
 
     def __init__(self, *args, **kwargs):
         super(MainFrame, self).__init__(*args, **kwargs)
-
         # screen_show()
-
         # Set taskBarIcon
         self.taskbar_icon = WalletTaskBarICON(frame=self, title=self._BASIC_TITLE)
-
         #default testnet
         self.current_chain = TESTNET_CHAIN 
         self.faucet_url = FAUCET_CONFIG[self.current_chain] + FAUCET_ROUTE
-
         self.title_write('{} -- {}'.format(self._BASIC_TITLE, self.current_chain))
-
-        self.init_sdk()
-
+        self.sdk_init()
         self.layout_mainframe()
 
     def _on_close(self, event):
@@ -134,21 +129,20 @@ class MainFrame(wx.Frame):
     def title_write(self, title=_BASIC_TITLE):
         self.SetTitle(title)
 
-    def init_sdk(self):
+    def sdk_init(self):
         chain = CHAIN_CONFIG[self.current_chain]
         log_manager.log("init sdk. current chain: {}".format(chain))
         current_chain = known_chains[chain["name"]]
         print("current chain: {}".format(current_chain))
         # init_storage(self.current_chain) # init storage
         if ping(node=chain["address"], num_retries=1):
-            self.gph = Graphene(node=chain["address"], num_retries=1, current_chain=self.current_chain) 
-            set_shared_graphene_instance(self.gph)
+            self.sdk = Graphene(node=chain["address"], num_retries=1, current_chain=self.current_chain) 
+            set_shared_graphene_instance(self.sdk)
         else:
-            self.gph = None
+            self.sdk = None
 
     def layout_mainframe(self):
         super().__init__(parent=None)
-
         # Set the app icon
         app_icon_path = get_icon_file()
         if app_icon_path is not None:
@@ -211,26 +205,25 @@ class MainFrame(wx.Frame):
         self.status_bar = self.CreateStatusBar()
         # Bind extra events
         self.Bind(wx.EVT_CLOSE, self._on_close)
-
+        
+        self.title_update_thread()
+        self.notify_function()
+ 
+    def title_update_thread(self):
         self._thread = Thread(target = self.run, args = ())
         self._thread.daemon = True
         self._thread.start()
         self.started = True
- 
+
     def run(self):
         while True:
             try:
-                if self.gph:
-                    info = self.gph.info()
-                    head_block_number = info['head_block_number']
+                if self.sdk:
+                    head_block_number = self.sdk.info()['head_block_number']
                     block_msg = "区块高度：{}".format(head_block_number)
-
-                    if self.gph.wallet:
-                        wallet_status = self.gph.wallet.created()
-                        # log_manager.log("wallet_status: {}".format(wallet_status))
-                        if wallet_status:
-                            locked_status = self.gph.wallet.locked()
-                            if locked_status:
+                    if self.sdk.wallet:
+                        if self.sdk.wallet.created():
+                            if self.sdk.wallet.locked():
                                 title_msg = "{} | 钱包已锁定".format(block_msg)
                             else:
                                 title_msg = "{} | 钱包已解锁".format(block_msg)
@@ -239,10 +232,9 @@ class MainFrame(wx.Frame):
                     else:
                         title_msg = "钱包初始化失败"
                 else:
-                    title_msg = "sdk 初始化失败"
+                    title_msg = "SDK 初始化失败"
             except Exception as e:
                 title_msg = repr(e)
-            # log_manager.log(title_msg)
             self.updateDisplay(title_msg)
             self.status_bar_write(get_random_verse())
             time.sleep(2)
@@ -279,7 +271,7 @@ class MainFrame(wx.Frame):
         self.current_chain = chain_name
         self.faucet_url = FAUCET_CONFIG[chain_name] + FAUCET_ROUTE
         # init_storage(chain_name) # init storage
-        self.init_sdk()
+        self.sdk_init()
         print("self.current_chain: {}".format(self.current_chain))
         self.title_write('{} -- {}'.format(self._BASIC_TITLE, self.current_chain))
 
@@ -421,14 +413,14 @@ class MainFrame(wx.Frame):
     def get_sdk_api(self, api_name):
         try:
             try:
-                sdk_func = getattr(self.gph, api_name)
+                sdk_func = getattr(self.sdk, api_name)
             except Exception as e:
                 api_obj = API_LIST[api_name]
                 # use api_obj["sdk_name"]  by sdk_name_index
                 if api_obj["class"] == "wallet":
-                    sdk_func = getattr(self.gph.wallet, api_name)
+                    sdk_func = getattr(self.sdk.wallet, api_name)
                 else:
-                    sdk_func = getattr(self.gph.rpc, api_name)
+                    sdk_func = getattr(self.sdk.rpc, api_name)
         except Exception as e:
             log_manager.log("[ERROR]get func failed. api_name:{}. {}".format(api_name, repr(e)))
             sdk_func = None
@@ -542,7 +534,7 @@ class MainFrame(wx.Frame):
     def api_button_on_click_faucet_register_account(self, event):
         account_name = self.param1_input_text.GetValue().strip()
         try:
-            brain_key = self.gph.suggest_key()
+            brain_key = self.sdk.suggest_key()
             owner_key = brain_key["owner_key"]
             brain_key_json = json_dumps(brain_key)
             log_manager.log(brain_key_json)
@@ -589,7 +581,7 @@ class MainFrame(wx.Frame):
         if len(password) == 0:
             password = "123456" # default
         try:
-            self.gph.newWallet(password)
+            self.sdk.newWallet(password)
             text = "钱包创建成功!"
         except Exception as e:
             text = "钱包创建失败, {}".format(repr(e))
@@ -600,7 +592,7 @@ class MainFrame(wx.Frame):
         if len(password) == 0:
             password = "123456" # default
         try:
-            self.gph.wallet.unlock(password)
+            self.sdk.wallet.unlock(password)
             text = "钱包解锁成功!"
         except Exception as e:
             text = "钱包解锁失败, {}".format(repr(e))
@@ -608,7 +600,7 @@ class MainFrame(wx.Frame):
 
     def api_button_on_click_lock(self, event):
         try:
-            self.gph.wallet.lock()
+            self.sdk.wallet.lock()
             text = "钱包锁定成功!"
         except Exception as e:
             text = "钱包锁定失败, {}".format(repr(e))
@@ -619,7 +611,7 @@ class MainFrame(wx.Frame):
         if len(password) == 0:
             password = "123456" # default
         try:
-            self.gph.wallet.changePassphrase(password)
+            self.sdk.wallet.changePassphrase(password)
             text = "钱包重置密码成功!"
         except Exception as e:
             text = "钱包重置密码失败, {}".format(repr(e))
@@ -629,24 +621,15 @@ class MainFrame(wx.Frame):
         private_key = self.param1_input_text.GetValue().strip()
         log_manager.log("key: {}".format(private_key))        
         try:
-            self.gph.wallet.addPrivateKey(private_key)
+            self.sdk.wallet.addPrivateKey(private_key)
             text = "导入私钥成功!"
         except Exception as e:
             text = "导入私钥失败, {}".format(repr(e))
         self.show_output_text(text)
 
-    # def api_button_on_click_import_key(self, event):
-    #     private_key = self.param1_input_text.GetValue().strip()
-    #     try:
-    #         self.gph.wallet.addPrivateKey(private_key)
-    #         text = "导入私钥成功!"
-    #     except Exception as e:
-    #         text = "导入私钥失败, {}".format(repr(e))
-    #     self.show_output_text(text)
-
     def api_button_on_click_getAccounts(self, event):
         try:
-            accounts = self.gph.wallet.getAccounts()
+            accounts = self.sdk.wallet.getAccounts()
             text = json_dumps(accounts)
         except Exception as e:
             text = "执行失败, {}".format(repr(e))
@@ -654,7 +637,7 @@ class MainFrame(wx.Frame):
 
     def api_button_on_click_suggest_key(self, event):
         try:
-            text = json_dumps(self.gph.suggest_key())
+            text = json_dumps(self.sdk.suggest_key())
         except Exception as e:
             text = "执行失败, {}".format(repr(e))
         self.show_output_text(text)
@@ -662,7 +645,7 @@ class MainFrame(wx.Frame):
     def api_button_on_click_getPrivateKeyForPublicKey(self, event):
         public_key = self.param1_input_text.GetValue().strip()
         try:
-            result = self.gph.wallet.getPrivateKeyForPublicKey(public_key)
+            result = self.sdk.wallet.getPrivateKeyForPublicKey(public_key)
             text = json_dumps(result)
         except Exception as e:
             text = "执行失败, {}".format(repr(e))
@@ -671,7 +654,7 @@ class MainFrame(wx.Frame):
     def api_button_on_click_getAccountFromPublicKey(self, event):
         public_key = self.param1_input_text.GetValue().strip()
         try:
-            result = self.gph.wallet.getAccountFromPublicKey(public_key)
+            result = self.sdk.wallet.getAccountFromPublicKey(public_key)
             text = json_dumps(result)
         except Exception as e:
             text = "执行失败, {}".format(repr(e))
@@ -680,7 +663,7 @@ class MainFrame(wx.Frame):
     ## chain api
     def api_button_on_click_info(self, event):
         try:
-            text = json_dumps(self.gph.info())
+            text = json_dumps(self.sdk.info())
         except Exception as e:
             text = "执行失败, {}".format(repr(e))
         self.show_output_text(text)
@@ -691,7 +674,7 @@ class MainFrame(wx.Frame):
         log_manager.log("name: {}".format(object_id))
         try:
             if len(object_id.split(".")) == 3:
-                text = self.gph.rpc.get_object(object_id)
+                text = self.sdk.rpc.get_object(object_id)
             else:
                 text = 'param({}) error'.format(object_id)
             text = json_dumps(text)
@@ -702,7 +685,7 @@ class MainFrame(wx.Frame):
     def api_button_on_click_get_block(self, event):
         number = self.param1_input_text.GetValue().strip()
         try:
-            result = self.gph.rpc.get_block(int(number))
+            result = self.sdk.rpc.get_block(int(number))
             text = json_dumps(result)
         except Exception as e:
             text = repr(e)
@@ -710,35 +693,35 @@ class MainFrame(wx.Frame):
 
     def api_button_on_click_get_config(self, event):
         try:
-            text = json_dumps(self.gph.rpc.get_config())
+            text = json_dumps(self.sdk.rpc.get_config())
         except Exception as e:
             text = "执行失败, {}".format(repr(e))
         self.show_output_text(text)
 
     def api_button_on_click_get_chain_id(self, event):
         try:
-            text = json_dumps(self.gph.rpc.get_chain_id())
+            text = json_dumps(self.sdk.rpc.get_chain_id())
         except Exception as e:
             text = "执行失败, {}".format(repr(e))
         self.show_output_text(text)
 
     def api_button_on_click_get_chain_properties(self, event):
         try:
-            text = json_dumps(self.gph.rpc.get_chain_properties())
+            text = json_dumps(self.sdk.rpc.get_chain_properties())
         except Exception as e:
             text = "执行失败, {}".format(repr(e))
         self.show_output_text(text)
 
     def api_button_on_click_get_global_properties(self, event):
         try:
-            text = json_dumps(self.gph.rpc.get_global_properties())
+            text = json_dumps(self.sdk.rpc.get_global_properties())
         except Exception as e:
             text = "执行失败, {}".format(repr(e))
         self.show_output_text(text)
     
     def api_button_on_click_get_dynamic_global_properties(self, event):
         try:
-            text = json_dumps(self.gph.rpc.get_dynamic_global_properties())
+            text = json_dumps(self.sdk.rpc.get_dynamic_global_properties())
         except Exception as e:
             text = "执行失败, {}".format(repr(e))
         self.show_output_text(text)
@@ -749,11 +732,11 @@ class MainFrame(wx.Frame):
         log_manager.log("name: {}".format(name))
         try:
             if len(name.split(".")) == 3:
-                text = self.gph.rpc.get_object(name)
+                text = self.sdk.rpc.get_object(name)
             else:
                 # account = Account(name)
                 # text = account.accounts_cache[name]
-                text = self.gph.rpc.get_account_by_name(name)
+                text = self.sdk.rpc.get_account_by_name(name)
             text = json_dumps(text)
         except Exception as e:
             text = "执行失败, {}".format(repr(e))
@@ -766,7 +749,7 @@ class MainFrame(wx.Frame):
         asset = self.param4_input_text.GetValue().strip()
         memo = self.param5_input_text.GetValue().strip()
         try:
-            result = self.gph.transfer(to_account, amount, asset, [memo, 0], from_account)
+            result = self.sdk.transfer(to_account, amount, asset, [memo, 0], from_account)
             text = json_dumps(result)
         except Exception as e:
             text = "执行失败, {}".format(repr(e))
@@ -779,7 +762,7 @@ class MainFrame(wx.Frame):
         memo_key = self.param4_input_text.GetValue().strip()
         register = self.param5_input_text.GetValue().strip()
         try:
-            result = self.gph.create_account(account_name=name, registrar=registrar,
+            result = self.sdk.create_account(account_name=name, registrar=registrar,
                         owner_key=owner_key, active_key=active_key, memo_key=memo_key)
             text = json_dumps(result)
         except Exception as e:
@@ -812,11 +795,11 @@ class MainFrame(wx.Frame):
             limit = min(100, int(limit))
         try:
             if len(name_or_id.split(".")) == 3:
-                account_object = self.gph.rpc.get_object(name_or_id)
+                account_object = self.sdk.rpc.get_object(name_or_id)
             else:
                 account = Account(name_or_id)
                 account_object = account.accounts_cache[name_or_id]
-            result = self.gph.rpc.get_account_history(account_object['id'], stop, limit, start, api="history")
+            result = self.sdk.rpc.get_account_history(account_object['id'], stop, limit, start, api="history")
             text = json_dumps(result)
         except Exception as e:
             text = "执行失败, {}".format(repr(e))
@@ -827,7 +810,7 @@ class MainFrame(wx.Frame):
         beneficiary = self.param2_input_text.GetValue().strip()
         collateral = self.param3_input_text.GetValue().strip()
         try:
-            result = self.gph.update_collateral_for_gas(beneficiary, int(collateral), from_account)
+            result = self.sdk.update_collateral_for_gas(beneficiary, int(collateral), from_account)
             text = json_dumps(result)
         except Exception as e:
             text = "执行失败, {}".format(repr(e))
@@ -839,7 +822,7 @@ class MainFrame(wx.Frame):
         # asset_symbol_or_id = self.params_input[0].GetValue().strip()
         log_manager.log("name: {}".format(asset_symbol_or_id))
         try:
-            text = json_dumps(self.gph.rpc.get_asset(asset_symbol_or_id))
+            text = json_dumps(self.sdk.rpc.get_asset(asset_symbol_or_id))
         except Exception as e:
             text = "执行失败, {}".format(repr(e))
         self.show_output_text(text)
@@ -850,7 +833,7 @@ class MainFrame(wx.Frame):
         log_manager.log("name: {}".format(name_or_id))
         try:
             if name_or_id.startswith("1.16."):
-                text = self.gph.rpc.get_object(name_or_id)
+                text = self.sdk.rpc.get_object(name_or_id)
             else:
                 contract = Contract(name_or_id)
                 text = contract.contracts_cache[name_or_id]
@@ -864,7 +847,7 @@ class MainFrame(wx.Frame):
     def api_button_on_click_get_transaction_by_id(self, event):
         tx_id = self.param1_input_text.GetValue().strip()
         try:
-            text = json_dumps(self.gph.rpc.get_transaction_by_id(tx_id))
+            text = json_dumps(self.sdk.rpc.get_transaction_by_id(tx_id))
         except Exception as e:
             text = "执行失败, {}".format(repr(e))
         self.show_output_text(text)
@@ -872,7 +855,7 @@ class MainFrame(wx.Frame):
     def api_button_on_click_get_transaction_in_block_info(self, event):
         tx_id = self.param1_input_text.GetValue().strip()
         try:
-            text = json_dumps(self.gph.rpc.get_transaction_in_block_info(tx_id))
+            text = json_dumps(self.sdk.rpc.get_transaction_in_block_info(tx_id))
         except Exception as e:
             text = "执行失败, {}".format(repr(e))
         self.show_output_text(text)
