@@ -207,7 +207,7 @@ class MainFrame(wx.Frame):
         self.Bind(wx.EVT_CLOSE, self._on_close)
         
         self.title_update_thread()
-        self.notify_function()
+        # self.notify_function()
  
     def title_update_thread(self):
         self._thread = Thread(target = self.run, args = ())
