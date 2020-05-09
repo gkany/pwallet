@@ -1,6 +1,8 @@
-**# pwallet**
+**pwallet**
 
 ----------------------
+
+__WARNING__: *This is experimental software. Use at your own risk*
 
 ## 概述
 
@@ -51,18 +53,13 @@
 
 * python 3.5+
 * wxPython 4.0+
-* 其他参考requirements.txt安装
+* 其他依赖参考requirements.txt安装
 
 
 
 ## 待完成:
 
-* 跨平台、控件布局完备性测试。
 * API Config中参数增加类型，支持参数输入根据类型转换
-* json序列化工具添加
 * 水龙头注册账户导入到钱包中。
 * 打包成可安装文件
 
-
-nohup python3 check.py 133730 4232128 >> logs/check_nohup.log 2>&1 &
-                       134343

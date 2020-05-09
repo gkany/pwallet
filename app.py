@@ -546,6 +546,8 @@ class MainFrame(wx.Frame):
                     "id":1
                 }
             }
+            print("url: {}".format(self.faucet_url))
+            print("req_data: {}".format(req_data))
             response = json.loads(requests.post(self.faucet_url, data=json.dumps(req_data), headers=faucet_headers).text)
             text = {
                 "brain_key": brain_key,
